@@ -68,7 +68,6 @@ model Dish {
 
   ingredients     DishIngredient[]
   mealPlanEntries MealPlanEntry[]
-  profile         UserProfile?
 }
 
 model DishIngredient {
