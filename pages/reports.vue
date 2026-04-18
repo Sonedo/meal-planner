@@ -25,8 +25,8 @@
       <!-- Семейный режим -->
       <div v-if="hasFamily" class="flex items-center gap-2 ml-auto">
         <span class="text-sm" style="color:var(--color-text-dim);">Данные:</span>
-        <button class="btn text-xs py-1.5 px-3" :class="!familyMode ? 'btn-primary' : 'btn-secondary'" @click="familyMode = false">Мои</button>
-        <button class="btn text-xs py-1.5 px-3" :class="familyMode ? 'btn-primary' : 'btn-secondary'" @click="familyMode = true">🏠 Семьи</button>
+        <button class="btn text-xs py-1.5 px-3" :class="!familyMode ? 'btn-primary' : 'btn-secondary'" @click="setFamilyMode(false)">Мои</button>
+        <button class="btn text-xs py-1.5 px-3" :class="familyMode ? 'btn-primary' : 'btn-secondary'" @click="setFamilyMode(true)">🏠 Семьи</button>
       </div>
       <button class="btn btn-primary" :disabled="loading" @click="loadReports">
         {{ loading ? 'Загрузка…' : 'Сформировать' }}
@@ -242,6 +242,14 @@ function setPreset(preset: 'week'|'month') {
     from.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
     const last = new Date(now.getFullYear(), now.getMonth()+1, 0)
     to.value   = last.toISOString().split('T')[0]
+  }
+}
+
+function setFamilyMode(val: boolean) {
+  familyMode.value = val
+  // Если данные уже загружены — перезагружаем с новым режимом
+  if (nutritionData.value || shoppingData.value || prepData.value) {
+    loadReports()
   }
 }
 
