@@ -1,0 +1,44 @@
+# .github/workflows/deploy.yml
+# Автодеплой на Ubuntu-сервер при пуше в ветку main
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host:     ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key:      ${{ secrets.SSH_KEY }}
+          port:     ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -e
+            cd ~/meal-planner
+
+            echo "📥 Получаем изменения..."
+            git pull origin main
+
+            echo "📦 Устанавливаем зависимости..."
+            npm install
+
+            echo "🗄️ Применяем миграции БД..."
+            node --env-file=.env ./node_modules/.bin/prisma db push
+
+            echo "🔨 Собираем приложение..."
+            npm run build
+
+            echo "🔄 Перезапускаем сервис..."
+            sudo systemctl restart nutriplan
+
+            echo "✅ Деплой завершён!"

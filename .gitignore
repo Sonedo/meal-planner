@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+.idea
+
+# Build output
+.output/
+.nuxt/
+dist/
+
+# Environment (никогда не коммитить!)
+.env
+
+# Database files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

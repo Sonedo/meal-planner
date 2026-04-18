@@ -1,0 +1,94 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ── Пользователь ─────────────────────────────────────────────────────────────
+model User {
+  id           Int      @id @default(autoincrement())
+  login        String   @unique          // любые символы, уникальный
+  password     String                    // bcrypt hash
+  display_name String                    // отображаемое имя
+  family_id    Int?                      // null = нет семьи
+  family_role  String?                   // "owner" | "member"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  family          Family?         @relation(fields: [family_id], references: [id])
+  mealPlanEntries MealPlanEntry[]
+}
+
+// ── Семья ─────────────────────────────────────────────────────────────────────
+model Family {
+  id         Int      @id @default(autoincrement())
+  name       String
+  invite_code String  @unique  // 8-символьный код для приглашения
+  createdAt  DateTime @default(now())
+
+  members    User[]
+}
+
+// ── Продукты (общие) ──────────────────────────────────────────────────────────
+model Product {
+  id                Int              @id @default(autoincrement())
+  name              String           @unique
+  calories_per_100g Float
+  protein_per_100g  Float
+  fat_per_100g      Float
+  carbs_per_100g    Float
+  category          String
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  dishIngredients   DishIngredient[]
+}
+
+// ── Блюда (общие) ─────────────────────────────────────────────────────────────
+model Dish {
+  id             Int              @id @default(autoincrement())
+  name           String           @unique
+  category       String
+  cooking_time   Int?
+  notes          String?
+  servings       Int              @default(1)
+  total_calories Float            @default(0)
+  total_protein  Float            @default(0)
+  total_fat      Float            @default(0)
+  total_carbs    Float            @default(0)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  ingredients     DishIngredient[]
+  mealPlanEntries MealPlanEntry[]
+}
+
+model DishIngredient {
+  id             Int     @id @default(autoincrement())
+  dish_id        Int
+  product_id     Int
+
+  quantity_grams Float
+
+  dish           Dish    @relation(fields: [dish_id], references: [id], onDelete: Cascade)
+  product        Product @relation(fields: [product_id], references: [id])
+}
+
+// ── План питания (личный) ─────────────────────────────────────────────────────
+model MealPlanEntry {
+  id        Int      @id @default(autoincrement())
+  user_id   Int
+  date      String
+  meal_type String
+  dish_id   Int
+  portions  Float    @default(1)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  dish      Dish     @relation(fields: [dish_id], references: [id])
+}
