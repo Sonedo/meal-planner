@@ -259,10 +259,18 @@ function goToday() {
 }
 
 const weekDays = computed(() => {
-  const t = new Date(); t.setHours(0,0,0,0)
+  const todayStr = localDate()
   return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart.value.getTime() + i*86400000)
-    return { date: localDate(d), dayName: DAY_NAMES[d.getDay()], dayNum: d.getDate(), isToday: d.getTime() === t.getTime() }
+    // Сдвигаем от начала недели через локальные дни — без UTC-проблем
+    const d = new Date(weekStart.value)
+    d.setDate(d.getDate() + i)
+    const dateStr = localDate(d)
+    return {
+      date: dateStr,
+      dayName: DAY_NAMES[d.getDay()],
+      dayNum: d.getDate(),
+      isToday: dateStr === todayStr,
+    }
   })
 })
 const weekLabel = computed(() => {
@@ -286,8 +294,7 @@ const loading      = ref(true)
 const familyMode   = ref(false)
 
 function getFrom() {
-  if (typeof window !== 'undefined' && window.innerWidth < 768) {
-    // mobile — грузим ±3 дня от текущего
+  if (!isDesktop.value) {
     const d = new Date(mobileDay.value + 'T00:00:00')
     d.setDate(d.getDate() - 3)
     return localDate(d)
@@ -295,7 +302,7 @@ function getFrom() {
   return weekDays.value[0].date
 }
 function getTo() {
-  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+  if (!isDesktop.value) {
     const d = new Date(mobileDay.value + 'T00:00:00')
     d.setDate(d.getDate() + 3)
     return localDate(d)
