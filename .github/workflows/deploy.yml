@@ -24,7 +24,7 @@ jobs:
           port:     ${{ secrets.SSH_PORT || 22 }}
           script: |
             set -e
-            cd ~/meal-planner
+            cd /opt/meal-planner
 
             echo "📥 Получаем изменения..."
             git pull origin main
