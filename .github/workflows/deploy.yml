@@ -1,6 +1,3 @@
-# .github/workflows/deploy.yml
-# Автодеплой на Ubuntu-сервер при пуше в ветку main
-
 name: Deploy
 
 on:
@@ -21,7 +18,7 @@ jobs:
           host:     ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key:      ${{ secrets.SSH_KEY }}
-          port:     ${{ secrets.SSH_PORT || 22 }}
+          port:     ${{ secrets.SSH_PORT }}
           script: |
             set -e
             cd /opt/meal-planner
@@ -33,7 +30,7 @@ jobs:
             npm install
 
             echo "🗄️ Применяем миграции БД..."
-            node --env-file=.env ./node_modules/.bin/prisma db push
+            /usr/bin/node --env-file=.env ./node_modules/.bin/prisma db push
 
             echo "🔨 Собираем приложение..."
             npm run build
