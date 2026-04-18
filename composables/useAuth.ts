@@ -1,4 +1,6 @@
 // composables/useAuth.ts
+// SPA режим — всё выполняется на клиенте, cookie браузер отправляет сам
+
 export interface AuthUser {
   id: number
   login: string
@@ -16,15 +18,7 @@ export function useAuth() {
   async function fetchMe() {
     try {
       loading.value = true
-
-      // На сервере $fetch не передаёт cookie автоматически —
-      // нужно явно пробросить заголовок Cookie из входящего запроса
-      const headers = import.meta.server
-        ? useRequestHeaders(['cookie'])
-        : undefined
-
-      const me = await $fetch<AuthUser>('/api/auth/me', { headers })
-      user.value = me
+      user.value = await $fetch<AuthUser>('/api/auth/me')
     } catch {
       user.value = null
     } finally {
@@ -55,10 +49,7 @@ export function useAuth() {
   }
 
   async function refreshMe() {
-    const headers = import.meta.server
-      ? useRequestHeaders(['cookie'])
-      : undefined
-    user.value = await $fetch<AuthUser>('/api/auth/me', { headers })
+    user.value = await $fetch<AuthUser>('/api/auth/me')
   }
 
   const isAuthenticated = computed(() => !!user.value)

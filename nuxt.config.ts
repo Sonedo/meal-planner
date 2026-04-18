@@ -8,12 +8,14 @@ export default defineNuxtConfig({
     port: parseInt(process.env.PORT || '3000'),
   },
 
-  // Базовый путь — задаётся через APP_BASE_URL в .env
-  // Dev:  APP_BASE_URL не задан → работает на /
-  // Prod: APP_BASE_URL=/wfqwefqefq23f1 → все ссылки и запросы идут через префикс
+  // Отключаем SSR — рендерим всё на клиенте (SPA режим)
+  // Это решает все проблемы с baseURL + cookie + hydration mismatch
+  ssr: false,
+
   app: {
-    baseURL: process.env.APP_BASE_URL ? `${process.env.APP_BASE_URL}/` : '/',
-    cdnURL:  process.env.APP_BASE_URL ? `${process.env.APP_BASE_URL}/` : '/',
+    baseURL: process.env.APP_BASE_URL
+      ? `/${process.env.APP_BASE_URL.replace(/^\/+|\/+$/g, '')}/`
+      : '/',
   },
 
   runtimeConfig: {

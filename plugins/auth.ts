@@ -1,13 +1,11 @@
-// plugins/auth.ts — только клиент, восстанавливает сессию при навигации
+// plugins/auth.ts — в SPA режиме всегда выполняется на клиенте
 export default defineNuxtPlugin({
   name: 'auth',
   enforce: 'pre',
   async setup() {
-    if (import.meta.client) {
-      const { user, fetchMe } = useAuth()
-      if (!user.value) {
-        await fetchMe()
-      }
+    const { user, fetchMe } = useAuth()
+    if (!user.value) {
+      await fetchMe()
     }
   },
 })

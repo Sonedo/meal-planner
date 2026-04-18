@@ -1,16 +1,18 @@
 // middleware/auth.ts
 export default defineNuxtRouteMiddleware(async (to) => {
-  if (to.path === '/login' || to.path === '/register') return
+  // to.path всегда без baseURL — Nuxt его убирает до middleware
+  // Поэтому проверяем просто /login и /register
+  const publicPaths = ['/login', '/register']
+  if (publicPaths.includes(to.path)) return
 
   const { user, fetchMe } = useAuth()
 
-  // На сервере: user пуст после SSR — грузим с cookie входящего запроса
-  // На клиенте: плагин уже загрузил, но если нет — грузим здесь
   if (!user.value) {
     await fetchMe()
   }
 
   if (!user.value) {
-    return navigateTo('/login')
+    // navigateTo с внешним флагом — работает корректно и в SSR и на клиенте
+    return navigateTo('/login', { replace: true })
   }
 })
