@@ -341,7 +341,12 @@ onMounted(() => {
 
 // ── Сетка ─────────────────────────────────────────────────────────────────────
 function getEntries(date: string, mealType: string) {
-  return entries.value.filter(e => e.date === date && e.meal_type === mealType)
+  const result = entries.value.filter(e => e.date === date && e.meal_type === mealType)
+  if (entries.value.length > 0 && date === weekDays.value[5]?.date) {
+    console.log('[getEntries] weekDays dates:', weekDays.value.map(d => d.date))
+    console.log('[getEntries] entries dates:', entries.value.map(e => e.date))
+  }
+  return result
 }
 function entryCalories(entry: any) {
   return (entry.dish?.total_calories ?? 0) * ((entry.portions ?? 1) / (entry.dish?.servings ?? 1))
