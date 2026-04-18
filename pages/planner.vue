@@ -55,7 +55,28 @@
             class="card p-2 flex flex-col gap-1.5 min-h-[80px]"
             :style="day.isToday ? 'border-color:rgba(200,240,74,0.2);' : ''"
           >
-            <EntryList :entries="getEntries(day.date, mealType.value)" :family-mode="familyMode" :current-user-id="user?.id" @remove="removeEntry" />
+            <!-- Блюда в ячейке — рендерим inline для корректной реактивности -->
+            <div
+              v-for="entry in entries.filter(e => e.date === day.date && e.meal_type === mealType.value)"
+              :key="entry.id"
+              class="group relative flex flex-col gap-0.5 rounded-lg p-1.5"
+              style="background:var(--color-bg); border:1px solid var(--color-border);"
+            >
+              <p v-if="familyMode" class="text-[9px] uppercase tracking-wider" :style="entry.user?.id === user?.id ? 'color:var(--color-accent)' : 'color:var(--color-muted)'">
+                {{ entry.user?.id === user?.id ? 'Вы' : entry.user?.display_name }}
+              </p>
+              <p class="text-[11px] font-medium leading-tight pr-4" style="font-family:'Syne',sans-serif;">{{ entry.dish?.name }}</p>
+              <div class="flex items-center gap-1">
+                <span class="text-[10px] px-1 py-0.5 rounded" style="background:rgba(200,240,74,0.1); color:var(--color-accent);">×{{ entry.portions ?? 1 }}п</span>
+                <span class="macro-cal text-[10px] px-1 py-0.5 rounded">{{ Math.round(entryCalories(entry)) }} ккал</span>
+              </div>
+              <button
+                v-if="entry.user?.id === user?.id"
+                class="absolute top-1 right-1 w-4 h-4 flex items-center justify-center rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+                style="background:rgba(248,113,113,0.2); color:#f87171;"
+                @click="removeEntry(entry.id)"
+              >×</button>
+            </div>
             <button class="add-btn" @click="openAdd(day.date, mealType.value)">+ блюдо</button>
           </div>
         </div>
@@ -312,16 +333,12 @@ function getTo() {
 
 async function load() {
   loading.value = true
-  const from = getFrom()
-  const to   = getTo()
-  console.log('[planner] load', { from, to, isDesktop: isDesktop.value, entries_count: entries.value.length })
   try {
     const [planEntries, dishList] = await Promise.all([
-      $fetch<any[]>('/api/meal-plan', { query: { from, to, family: familyMode.value } }),
+      $fetch<any[]>('/api/meal-plan', { query: { from: getFrom(), to: getTo(), family: familyMode.value } }),
       $fetch<any[]>('/api/dishes'),
     ])
-    console.log('[planner] entries received:', planEntries.length, planEntries.map((e: any) => e.date + ' ' + e.dish?.name))
-    entries.value  = planEntries
+    entries.value   = planEntries
     allDishes.value = dishList
   } finally { loading.value = false }
 }
@@ -341,12 +358,7 @@ onMounted(() => {
 
 // ── Сетка ─────────────────────────────────────────────────────────────────────
 function getEntries(date: string, mealType: string) {
-  const result = entries.value.filter(e => e.date === date && e.meal_type === mealType)
-  if (entries.value.length > 0 && date === weekDays.value[5]?.date) {
-    console.log('[getEntries] weekDays dates:', weekDays.value.map(d => d.date))
-    console.log('[getEntries] entries dates:', entries.value.map(e => e.date))
-  }
-  return result
+  return entries.value.filter(e => e.date === date && e.meal_type === mealType)
 }
 function entryCalories(entry: any) {
   return (entry.dish?.total_calories ?? 0) * ((entry.portions ?? 1) / (entry.dish?.servings ?? 1))
