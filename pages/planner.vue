@@ -312,11 +312,17 @@ function getTo() {
 
 async function load() {
   loading.value = true
+  const from = getFrom()
+  const to   = getTo()
+  console.log('[planner] load', { from, to, isDesktop: isDesktop.value, entries_count: entries.value.length })
   try {
-    [entries.value, allDishes.value] = await Promise.all([
-      $fetch('/api/meal-plan', { query: { from: getFrom(), to: getTo(), family: familyMode.value } }),
-      $fetch('/api/dishes'),
+    const [planEntries, dishList] = await Promise.all([
+      $fetch<any[]>('/api/meal-plan', { query: { from, to, family: familyMode.value } }),
+      $fetch<any[]>('/api/dishes'),
     ])
+    console.log('[planner] entries received:', planEntries.length, planEntries.map((e: any) => e.date + ' ' + e.dish?.name))
+    entries.value  = planEntries
+    allDishes.value = dishList
   } finally { loading.value = false }
 }
 
