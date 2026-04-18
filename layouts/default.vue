@@ -39,6 +39,7 @@
           <p class="px-2 text-[10px] uppercase tracking-wider mt-3 mb-1" style="color:var(--color-muted); font-family:'Syne',sans-serif;">Личное</p>
           <NavLink to="/planner" icon="📅" label="Планировщик" />
           <NavLink to="/reports" icon="📊" label="Отчёты" />
+          <NavLink to="/inventory" icon="📦" label="Инвентарь" />
         </nav>
 
         <!-- Профиль -->
@@ -124,6 +125,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/planner':  'Планировщик',
   '/reports':  'Отчёты',
   '/profile':  'Профиль',
+  '/inventory': 'Инвентарь',
 }
 const pageTitle = computed(() => PAGE_TITLES[route.path] ?? 'НутриПлан')
 </script>
