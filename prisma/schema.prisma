@@ -22,6 +22,7 @@ model User {
 
   family          Family?         @relation(fields: [family_id], references: [id])
   mealPlanEntries MealPlanEntry[]
+  profile         UserProfile?
 }
 
 // ── Семья ─────────────────────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ model Dish {
 
   ingredients     DishIngredient[]
   mealPlanEntries MealPlanEntry[]
+  profile         UserProfile?
 }
 
 model DishIngredient {
@@ -106,4 +108,19 @@ model InventoryItem {
   updatedAt  DateTime @updatedAt
 
   product    Product  @relation(fields: [product_id], references: [id])
+}
+
+// ── Профиль здоровья (личный) ─────────────────────────────────────────────────
+model UserProfile {
+  id         Int      @id @default(autoincrement())
+  user_id    Int      @unique
+  gender     String   @default("male")   // male | female
+  birth_year Int?
+  height_cm  Float?
+  weight_kg  Float?
+  activity   String   @default("moderate") // sedentary | light | moderate | active | very_active
+  goal       String   @default("maintain") // lose | maintain | gain | recomp
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }

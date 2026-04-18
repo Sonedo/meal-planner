@@ -46,18 +46,40 @@
         Выберите период и нажмите «Сформировать».
       </div>
       <div v-else>
-        <!-- Итого + среднее -->
-        <div class="grid grid-cols-2 gap-4 mb-5">
+        <!-- Норма пользователя — подсказка если не задана -->
+        <div v-if="!userGoals" class="mb-4 px-4 py-3 rounded-xl text-sm flex items-center gap-3" style="background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.2);">
+          <span>💡</span>
+          <span style="color:var(--color-text-dim);">
+            Заполните параметры в разделе <NuxtLink to="/profile" style="color:var(--color-accent);">Профиль → Здоровье</NuxtLink> чтобы видеть диаграммы достаточности питания.
+          </span>
+        </div>
+
+        <!-- Итого + среднее в день -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
           <div class="card px-5 py-4">
-            <p class="label mb-3">
+            <p class="label mb-4">
               Итого · {{ nutritionData.days_with_data }} дн.
               <span v-if="nutritionData.family_mode" class="ml-1" style="color:var(--color-accent);">🏠</span>
             </p>
-            <MacroPills :calories="nutritionData.total.calories" :protein="nutritionData.total.protein" :fat="nutritionData.total.fat" :carbs="nutritionData.total.carbs" />
+            <MacroGauges
+              :calories="nutritionData.total.calories"
+              :protein="nutritionData.total.protein"
+              :fat="nutritionData.total.fat"
+              :carbs="nutritionData.total.carbs"
+              :goals="userGoals ? { calories: userGoals.calories * nutritionData.days_with_data, protein: userGoals.protein * nutritionData.days_with_data, fat: userGoals.fat * nutritionData.days_with_data, carbs: userGoals.carbs * nutritionData.days_with_data } : null"
+              :size="88"
+            />
           </div>
           <div class="card px-5 py-4">
-            <p class="label mb-3">Среднее в день</p>
-            <MacroPills :calories="nutritionData.average_per_day.calories" :protein="nutritionData.average_per_day.protein" :fat="nutritionData.average_per_day.fat" :carbs="nutritionData.average_per_day.carbs" />
+            <p class="label mb-4">Среднее в день vs норма</p>
+            <MacroGauges
+              :calories="nutritionData.average_per_day.calories"
+              :protein="nutritionData.average_per_day.protein"
+              :fat="nutritionData.average_per_day.fat"
+              :carbs="nutritionData.average_per_day.carbs"
+              :goals="userGoals"
+              :size="88"
+            />
           </div>
         </div>
 
@@ -73,7 +95,7 @@
               </div>
               <span class="text-sm font-medium truncate" style="font-family:'Syne',sans-serif;">{{ m.display_name }}</span>
             </div>
-            <div class="flex-1"><MacroPills :calories="m.calories" :protein="m.protein" :fat="m.fat" :carbs="m.carbs" /></div>
+            <div class="flex-1"><MacroGauges :calories="m.calories" :protein="m.protein" :fat="m.fat" :carbs="m.carbs" :goals="userGoals" :size="72" /></div>
           </div>
         </div>
 
@@ -83,9 +105,12 @@
             <h3 class="text-sm font-bold" style="font-family:'Syne',sans-serif;">По дням</h3>
           </div>
           <div v-if="nutritionData.by_day.length === 0" class="px-5 py-6 text-sm" style="color:var(--color-muted);">Нет записей.</div>
-          <div v-for="day in nutritionData.by_day" :key="day.date" class="table-row">
-            <span class="w-36 text-sm font-medium" style="font-family:'Syne',sans-serif;">{{ fmtDate(day.date) }}</span>
-            <div class="flex-1"><MacroPills :calories="day.calories" :protein="day.protein" :fat="day.fat" :carbs="day.carbs" /></div>
+          <div v-for="day in nutritionData.by_day" :key="day.date" class="table-row flex-wrap gap-3">
+            <span class="w-32 text-sm font-medium flex-shrink-0" style="font-family:'Syne',sans-serif;">{{ fmtDate(day.date) }}</span>
+            <MacroGauges
+              :calories="day.calories" :protein="day.protein" :fat="day.fat" :carbs="day.carbs"
+              :goals="userGoals" :size="72"
+            />
           </div>
         </div>
       </div>
@@ -224,6 +249,7 @@ const loading    = ref(false)
 const nutritionData = ref<any>(null)
 const shoppingData  = ref<any>(null)
 const prepData      = ref<any>(null)
+const userGoals     = ref<any>(null)  // дневные нормы пользователя
 
 const totalShoppingItems = computed(() =>
   shoppingData.value ? Object.values(shoppingData.value.categories as Record<string,any[]>).reduce((s,i) => s+i.length, 0) : 0
@@ -287,5 +313,13 @@ function groupedIngredients(ings: any[]) {
   return sorted
 }
 
-onMounted(() => { setPreset('week'); loadReports() })
+onMounted(async () => {
+  setPreset('week')
+  // Загружаем нормы пользователя для диаграмм
+  try {
+    const p = await $fetch<any>('/api/profile')
+    userGoals.value = p.goals ?? null
+  } catch {}
+  loadReports()
+})
 </script>
