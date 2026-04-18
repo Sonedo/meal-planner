@@ -231,17 +231,21 @@ const totalShoppingItems = computed(() =>
 
 function getCatLabel(v: string) { return CAT_LABELS[v] ?? v }
 
+function localDate(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
 function setPreset(preset: 'week'|'month') {
   const now = new Date()
   if (preset === 'week') {
     const mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay()+6)%7))
     const sun = new Date(mon); sun.setDate(mon.getDate()+6)
-    from.value = mon.toISOString().split('T')[0]
-    to.value   = sun.toISOString().split('T')[0]
+    from.value = localDate(mon)
+    to.value   = localDate(sun)
   } else {
     from.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
     const last = new Date(now.getFullYear(), now.getMonth()+1, 0)
-    to.value   = last.toISOString().split('T')[0]
+    to.value   = localDate(last)
   }
 }
 

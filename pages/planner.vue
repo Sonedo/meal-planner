@@ -211,7 +211,14 @@ const weekStart  = ref(getMonday(new Date()))
 const mobileDay  = ref(today())
 const isDesktop  = ref(true)  // инициализируем на сервере как desktop, обновляем в onMounted
 
-function today() { return new Date().toISOString().split('T')[0] }
+// Локальная дата YYYY-MM-DD без UTC-сдвига
+function localDate(d: Date = new Date()): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+function today() { return localDate() }
 function getMonday(d: Date) {
   const day = new Date(d); day.setHours(0,0,0,0)
   const dow = (day.getDay() + 6) % 7; day.setDate(day.getDate() - dow); return day
@@ -255,7 +262,7 @@ const weekDays = computed(() => {
   const t = new Date(); t.setHours(0,0,0,0)
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart.value.getTime() + i*86400000)
-    return { date: d.toISOString().split('T')[0], dayName: DAY_NAMES[d.getDay()], dayNum: d.getDate(), isToday: d.getTime() === t.getTime() }
+    return { date: localDate(d), dayName: DAY_NAMES[d.getDay()], dayNum: d.getDate(), isToday: d.getTime() === t.getTime() }
   })
 })
 const weekLabel = computed(() => {
@@ -283,7 +290,7 @@ function getFrom() {
     // mobile — грузим ±3 дня от текущего
     const d = new Date(mobileDay.value + 'T00:00:00')
     d.setDate(d.getDate() - 3)
-    return d.toISOString().split('T')[0]
+    return localDate(d)
   }
   return weekDays.value[0].date
 }
@@ -291,7 +298,7 @@ function getTo() {
   if (typeof window !== 'undefined' && window.innerWidth < 768) {
     const d = new Date(mobileDay.value + 'T00:00:00')
     d.setDate(d.getDate() + 3)
-    return d.toISOString().split('T')[0]
+    return localDate(d)
   }
   return weekDays.value[6].date
 }
