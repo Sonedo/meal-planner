@@ -233,7 +233,7 @@
               style="background:var(--color-surface); border:1px solid var(--color-border); max-height:160px; overflow-y:auto;"
             >
               <div
-                v-for="p in searchExtraProducts2(ex.search)" :key="p.id"
+                v-for="p in searchExtraProducts(ex.search)" :key="p.id"
                 class="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-white/5 text-sm"
                 @mousedown.prevent="selectExtraProduct(idx, p)"
               >
@@ -390,12 +390,14 @@ function getTo() {
 async function load() {
   loading.value = true
   try {
-    const [planEntries, dishList] = await Promise.all([
+    const [planEntries, dishList, productList] = await Promise.all([
       $fetch<any[]>('/api/meal-plan', { query: { from: getFrom(), to: getTo(), family: familyMode.value } }),
       $fetch<any[]>('/api/dishes'),
+      allProducts.value.length > 0 ? Promise.resolve(allProducts.value) : $fetch<any[]>('/api/products'),
     ])
-    entries.value   = planEntries
-    allDishes.value = dishList
+    entries.value    = planEntries
+    allDishes.value  = dishList
+    allProducts.value = productList
   } finally { loading.value = false }
 }
 
@@ -444,30 +446,23 @@ const addForm = reactive<{
   date: '', meal_type: '', dish_id: '', portions: 1, target_user_id: null,
   note: '', extras: [],
 })
-// Extra ingredients helpers
+// ── Дополнительные ингредиенты ───────────────────────────────────────────────
+const allProducts = ref<any[]>([])
+
 function addExtra() {
   addForm.extras.push({ product_id: 0, quantity_grams: 100, search: '', open: false })
 }
 function removeExtra(idx: number) { addForm.extras.splice(idx, 1) }
+
 function searchExtraProducts(q: string) {
   const lower = q.toLowerCase().trim()
   if (!lower) return []
-  return allDishes.value.length > 0
-    ? [] // allDishes are dishes not products, we need allProducts
-    : []
-}
-// We need products list for extra search — fetch it
-const allProducts = ref<any[]>([])
-
-function searchExtraProducts2(q: string) {
-  const lower = q.toLowerCase().trim()
-  if (!lower || lower.length < 1) return []
   return allProducts.value.filter(p => p.name.toLowerCase().includes(lower)).slice(0, 15)
 }
 function selectExtraProduct(idx: number, product: any) {
-  addForm.extras[idx].product_id    = product.id
-  addForm.extras[idx].search        = product.name
-  addForm.extras[idx].open          = false
+  addForm.extras[idx].product_id = product.id
+  addForm.extras[idx].search     = product.name
+  addForm.extras[idx].open       = false
 }
 function closeExtraDropdown(idx: number) {
   setTimeout(() => { addForm.extras[idx].open = false }, 150)
