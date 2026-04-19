@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   if (!body.date || !body.meal_type || !body.dish_id)
     throw createError({ statusCode: 400, statusMessage: 'Обязательны поля: date, meal_type и dish_id' })
   if (!VALID_MEAL_TYPES.includes(body.meal_type))
-    throw createError({ statusCode: 400, statusMessage: `meal_type должен быть одним из: ${VALID_MEAL_TYPES.join(', ')}` })
+    throw createError({ statusCode: 400, statusMessage: 'Неверный meal_type' })
   if (!/^\d{4}-\d{2}-\d{2}$/.test(body.date))
     throw createError({ statusCode: 400, statusMessage: 'Дата должна быть в формате ГГГГ-ММ-ДД' })
 
@@ -19,23 +19,24 @@ export default defineEventHandler(async (event) => {
   if (portions <= 0 || portions > 100)
     throw createError({ statusCode: 400, statusMessage: 'portions должно быть от 0.1 до 100' })
 
-  // Определяем target_user_id — для кого добавляем запись
+  // Определяем для кого добавляем
   let targetUserId = session.userId
-
   if (body.target_user_id && Number(body.target_user_id) !== session.userId) {
-    // Добавляем за другого члена семьи — проверяем, что они в одной семье
-    if (!session.familyId)
-      throw createError({ statusCode: 403, statusMessage: 'Вы не состоите в семье' })
-
-    const targetUser = await prisma.user.findUnique({
-      where: { id: Number(body.target_user_id) },
-      select: { id: true, family_id: true },
-    })
-    if (!targetUser || targetUser.family_id !== session.familyId)
-      throw createError({ statusCode: 403, statusMessage: 'Этот пользователь не в вашей семье' })
-
-    targetUserId = targetUser.id
+    if (!session.familyId) throw createError({ statusCode: 403, statusMessage: 'Вы не состоите в семье' })
+    const target = await prisma.user.findUnique({ where: { id: Number(body.target_user_id) }, select: { id: true, family_id: true } })
+    if (!target || target.family_id !== session.familyId)
+      throw createError({ statusCode: 403, statusMessage: 'Пользователь не в вашей семье' })
+    targetUserId = target.id
   }
+
+  // Дополнительные ингредиенты
+  const extras: Array<{ product_id: number; quantity_grams: number }> =
+    Array.isArray(body.extra_ingredients)
+      ? body.extra_ingredients.map((e: any) => ({
+          product_id:    Number(e.product_id),
+          quantity_grams: Number(e.quantity_grams),
+        })).filter((e: any) => e.product_id && e.quantity_grams > 0)
+      : []
 
   const entry = await prisma.mealPlanEntry.create({
     data: {
@@ -44,10 +45,15 @@ export default defineEventHandler(async (event) => {
       meal_type: body.meal_type,
       dish_id:   Number(body.dish_id),
       portions,
+      note:      body.note?.trim() || null,
+      extraIngredients: extras.length > 0
+        ? { create: extras }
+        : undefined,
     },
     include: {
-      user: { select: { id: true, display_name: true } },
-      dish: { include: { ingredients: { include: { product: true } } } },
+      user:            { select: { id: true, display_name: true } },
+      dish:            { include: { ingredients: { include: { product: true } } } },
+      extraIngredients: { include: { product: true } },
     },
   })
 

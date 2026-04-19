@@ -10,30 +10,38 @@ export default defineEventHandler(async (event) => {
   const family  = query.family === 'true'
 
   if (!from || !to)
-    throw createError({ statusCode: 400, statusMessage: 'Обязательны параметры from и to (ГГГГ-ММ-ДД)' })
+    throw createError({ statusCode: 400, statusMessage: 'Обязательны параметры from и to' })
 
   let userIds = [session.userId]
   if (family && session.familyId) {
-    const members = await prisma.user.findMany({
-      where: { family_id: session.familyId }, select: { id: true },
-    })
+    const members = await prisma.user.findMany({ where: { family_id: session.familyId }, select: { id: true } })
     userIds = members.map(m => m.id)
   }
 
   const entries = await prisma.mealPlanEntry.findMany({
     where: { user_id: { in: userIds }, date: { gte: from, lte: to } },
-    include: { dish: { include: { ingredients: { include: { product: true } } } } },
+    include: {
+      dish: { include: { ingredients: { include: { product: true } } } },
+      extraIngredients: { include: { product: true } },
+    },
   })
 
   const aggregated = new Map<number, { product_id: number; name: string; category: string; total_grams: number }>()
+
+  function addToMap(product_id: number, name: string, category: string, grams: number) {
+    const ex = aggregated.get(product_id)
+    if (ex) ex.total_grams += grams
+    else aggregated.set(product_id, { product_id, name, category, total_grams: grams })
+  }
+
   for (const entry of entries) {
     const factor = entry.portions / (entry.dish.servings || 1)
-    for (const ing of entry.dish.ingredients) {
-      const grams = ing.quantity_grams * factor
-      const existing = aggregated.get(ing.product_id)
-      if (existing) { existing.total_grams += grams }
-      else aggregated.set(ing.product_id, { product_id: ing.product_id, name: ing.product.name, category: ing.product.category, total_grams: grams })
-    }
+    // Основные ингредиенты блюда
+    for (const ing of entry.dish.ingredients)
+      addToMap(ing.product_id, ing.product.name, ing.product.category, ing.quantity_grams * factor)
+    // Доп. ингредиенты (кастомизация) — умножаем на порции
+    for (const ex of entry.extraIngredients)
+      addToMap(ex.product_id, ex.product.name, ex.product.category, ex.quantity_grams * entry.portions)
   }
 
   const grouped: Record<string, Array<{ product_id: number; name: string; total_grams: number }>> = {}

@@ -47,8 +47,9 @@ model Product {
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
-  dishIngredients   DishIngredient[]
-  inventoryItems    InventoryItem[]
+  dishIngredients        DishIngredient[]
+  inventoryItems         InventoryItem[]
+  mealPlanExtras         MealPlanExtraIngredient[]
 }
 
 // ── Блюда (общие) ─────────────────────────────────────────────────────────────
@@ -89,10 +90,23 @@ model MealPlanEntry {
   meal_type String
   dish_id   Int
   portions  Float    @default(1)
+  note      String?  // личная заметка к приёму пищи
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  dish      Dish     @relation(fields: [dish_id], references: [id])
+  user             User                      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  dish             Dish                      @relation(fields: [dish_id], references: [id])
+  extraIngredients MealPlanExtraIngredient[]
+}
+
+// ── Доп. ингредиенты к записи плана (кастомизация блюда) ─────────────────────
+model MealPlanExtraIngredient {
+  id             Int    @id @default(autoincrement())
+  entry_id       Int
+  product_id     Int
+  quantity_grams Float
+
+  entry   MealPlanEntry @relation(fields: [entry_id], references: [id], onDelete: Cascade)
+  product Product       @relation(fields: [product_id], references: [id])
 }
 
 // ── Инвентарь (запасы семьи или личные) ──────────────────────────────────────

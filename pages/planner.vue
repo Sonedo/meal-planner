@@ -66,6 +66,10 @@
                 {{ entry.user?.id === user?.id ? 'Вы' : entry.user?.display_name }}
               </p>
               <p class="text-[11px] font-medium leading-tight pr-4" style="font-family:'Syne',sans-serif;">{{ entry.dish?.name }}</p>
+              <p v-if="entry.note" class="text-[10px] italic" style="color:var(--color-text-dim);">{{ entry.note }}</p>
+              <div v-if="entry.extraIngredients?.length" class="flex gap-1 flex-wrap">
+                <span v-for="ex in entry.extraIngredients" :key="ex.id" class="text-[9px] px-1 py-0.5 rounded" style="background:var(--color-border); color:var(--color-text-dim);">+{{ ex.product.name }}</span>
+              </div>
               <div class="flex items-center gap-1">
                 <span class="text-[10px] px-1 py-0.5 rounded" style="background:rgba(200,240,74,0.1); color:var(--color-accent);">×{{ entry.portions ?? 1 }}п</span>
                 <span class="macro-cal text-[10px] px-1 py-0.5 rounded">{{ Math.round(entryCalories(entry)) }} ккал</span>
@@ -112,6 +116,10 @@
                 {{ entry.user?.id === user?.id ? 'Вы' : entry.user?.display_name }}
               </p>
               <p class="text-sm font-medium leading-tight" style="font-family:'Syne',sans-serif;">{{ entry.dish?.name }}</p>
+              <p v-if="entry.note" class="text-xs mt-0.5 italic" style="color:var(--color-text-dim);">{{ entry.note }}</p>
+              <div v-if="entry.extraIngredients?.length" class="flex gap-1 flex-wrap mt-0.5">
+                <span v-for="ex in entry.extraIngredients" :key="ex.id" class="tag text-[10px]">+{{ ex.product.name }}</span>
+              </div>
               <div class="flex items-center gap-2 mt-1 flex-wrap">
                 <span class="text-xs px-2 py-0.5 rounded" style="background:rgba(200,240,74,0.1); color:var(--color-accent);">×{{ entry.portions ?? 1 }} порц.</span>
                 <span class="macro-cal text-xs px-2 py-0.5 rounded">{{ Math.round(entryCalories(entry)) }} ккал</span>
@@ -199,6 +207,54 @@
         </div>
         <p class="text-[10px] uppercase tracking-wider mb-1.5" style="color:var(--color-muted); font-family:'Syne',sans-serif;">{{ addForm.portions }} порц. → итого</p>
         <MacroPills :calories="portionCalories.calories" :protein="portionCalories.protein" :fat="portionCalories.fat" :carbs="portionCalories.carbs" />
+      </div>
+
+      <!-- Кастомизация: доп. ингредиенты -->
+      <div v-if="selectedDish" class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <label class="label mb-0">Дополнительные ингредиенты</label>
+          <button type="button" class="btn btn-secondary text-xs py-1 px-2" @click="addExtra">+ Добавить</button>
+        </div>
+        <p class="text-xs mb-2" style="color:var(--color-muted);">Кастомизация под конкретный приём: начинка, соус, топпинг…</p>
+
+        <div v-for="(ex, idx) in addForm.extras" :key="idx" class="flex items-end gap-2 mb-2">
+          <!-- Поиск продукта -->
+          <div class="flex-1 relative">
+            <input
+              v-model="ex.search"
+              class="input text-sm"
+              placeholder="Поиск продукта…"
+              @input="ex.product_id = 0"
+              @focus="ex.open = true"
+              @blur="closeExtraDropdown(idx)"
+            />
+            <div v-if="ex.open && ex.search.length > 0 && !ex.product_id"
+              class="absolute left-0 right-0 top-full mt-1 rounded-lg shadow-xl z-50 overflow-hidden"
+              style="background:var(--color-surface); border:1px solid var(--color-border); max-height:160px; overflow-y:auto;"
+            >
+              <div
+                v-for="p in searchExtraProducts2(ex.search)" :key="p.id"
+                class="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-white/5 text-sm"
+                @mousedown.prevent="selectExtraProduct(idx, p)"
+              >
+                <span>{{ p.name }}</span>
+                <span class="tag text-[10px]" :class="`cat-${p.category}`">{{ p.category }}</span>
+              </div>
+              <div v-if="searchExtraProducts(ex.search).length === 0" class="px-3 py-2 text-xs" style="color:var(--color-muted);">Не найдено</div>
+            </div>
+          </div>
+          <!-- Граммы -->
+          <div style="width:90px;">
+            <input v-model.number="ex.quantity_grams" type="number" min="1" step="1" class="input text-sm" placeholder="г" />
+          </div>
+          <button type="button" class="btn btn-ghost px-2 text-base" style="color:var(--color-muted);" @click="removeExtra(idx)">×</button>
+        </div>
+      </div>
+
+      <!-- Заметка к приёму -->
+      <div class="mb-4">
+        <label class="label">Заметка</label>
+        <input v-model="addForm.note" class="input text-sm" placeholder="напр. со сливочным сыром и лососем" />
       </div>
 
       <div class="flex gap-2 justify-end">
@@ -379,9 +435,44 @@ function formatDateRu(d: string) {
 const showAddModal = ref(false)
 const dishSearch   = ref('')
 const dishFilter   = ref('')
-const addForm      = reactive<{ date: string; meal_type: string; dish_id: number|''; portions: number; target_user_id: number|null }>({
+const addForm = reactive<{
+  date: string; meal_type: string; dish_id: number|''
+  portions: number; target_user_id: number|null
+  note: string
+  extras: Array<{ product_id: number; quantity_grams: number; search: string; open: boolean }>
+}>({
   date: '', meal_type: '', dish_id: '', portions: 1, target_user_id: null,
+  note: '', extras: [],
 })
+// Extra ingredients helpers
+function addExtra() {
+  addForm.extras.push({ product_id: 0, quantity_grams: 100, search: '', open: false })
+}
+function removeExtra(idx: number) { addForm.extras.splice(idx, 1) }
+function searchExtraProducts(q: string) {
+  const lower = q.toLowerCase().trim()
+  if (!lower) return []
+  return allDishes.value.length > 0
+    ? [] // allDishes are dishes not products, we need allProducts
+    : []
+}
+// We need products list for extra search — fetch it
+const allProducts = ref<any[]>([])
+
+function searchExtraProducts2(q: string) {
+  const lower = q.toLowerCase().trim()
+  if (!lower || lower.length < 1) return []
+  return allProducts.value.filter(p => p.name.toLowerCase().includes(lower)).slice(0, 15)
+}
+function selectExtraProduct(idx: number, product: any) {
+  addForm.extras[idx].product_id    = product.id
+  addForm.extras[idx].search        = product.name
+  addForm.extras[idx].open          = false
+}
+function closeExtraDropdown(idx: number) {
+  setTimeout(() => { addForm.extras[idx].open = false }, 150)
+}
+
 const targetMemberName = computed(() => {
   if (!addForm.target_user_id || addForm.target_user_id === user.value?.id) return 'Мой план'
   return familyMembers.value.find(m => m.id === addForm.target_user_id)?.display_name ?? ''
@@ -410,11 +501,21 @@ function selectDish(id: number) { addForm.dish_id = id; addForm.portions = 1 }
 function openAdd(date: string, mealType: string) {
   addForm.date = date; addForm.meal_type = mealType; addForm.dish_id = ''; addForm.portions = 1
   addForm.target_user_id = user.value?.id ?? null
+  addForm.note = ''; addForm.extras = []
   dishSearch.value = ''; dishFilter.value = mealType; showAddModal.value = true
 }
 async function saveEntry() {
   try {
-    const body: any = { date: addForm.date, meal_type: addForm.meal_type, dish_id: addForm.dish_id, portions: addForm.portions }
+    const validExtras = addForm.extras
+      .filter(e => e.product_id && e.quantity_grams > 0)
+      .map(e => ({ product_id: e.product_id, quantity_grams: e.quantity_grams }))
+
+    const body: any = {
+      date: addForm.date, meal_type: addForm.meal_type,
+      dish_id: addForm.dish_id, portions: addForm.portions,
+      note: addForm.note || null,
+      extra_ingredients: validExtras,
+    }
     if (addForm.target_user_id && addForm.target_user_id !== user.value?.id) body.target_user_id = addForm.target_user_id
     await $fetch('/api/meal-plan', { method: 'POST', body })
     toast(`Добавлено: ${addForm.portions} порц.`)

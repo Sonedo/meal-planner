@@ -7,17 +7,11 @@ export default defineEventHandler(async (event) => {
   const query   = getQuery(event)
   const from    = query.from as string | undefined
   const to      = query.to   as string | undefined
-  // family=true → вернуть план всей семьи (с именами участников)
   const family  = query.family === 'true'
 
-  // Determine which user IDs to query
   let userIds = [session.userId]
-
   if (family && session.familyId) {
-    const members = await prisma.user.findMany({
-      where: { family_id: session.familyId },
-      select: { id: true },
-    })
+    const members = await prisma.user.findMany({ where: { family_id: session.familyId }, select: { id: true } })
     userIds = members.map(m => m.id)
   }
 
@@ -31,10 +25,9 @@ export default defineEventHandler(async (event) => {
   const entries = await prisma.mealPlanEntry.findMany({
     where,
     include: {
-      user: { select: { id: true, display_name: true } },
-      dish: {
-        include: { ingredients: { include: { product: true } } },
-      },
+      user:            { select: { id: true, display_name: true } },
+      dish:            { include: { ingredients: { include: { product: true } } } },
+      extraIngredients: { include: { product: true } },
     },
     orderBy: [{ date: 'asc' }, { meal_type: 'asc' }],
   })
