@@ -220,7 +220,15 @@
         <div v-if="recipesData.dishes.length === 0" class="py-8 text-center" style="color:var(--color-muted);">
           Нет подходящих рецептов. Попробуйте увеличить допустимое кол-во недостающих.
         </div>
-        <div v-for="dish in recipesData.dishes" :key="dish.id" class="card mb-3 px-5 py-4">
+        <div
+          v-for="dish in recipesData.dishes" :key="dish.id"
+          class="card mb-3 px-5 py-4 cursor-pointer transition-all hover:border-opacity-50"
+          style="transition: border-color 0.15s;"
+          :style="{ 'border-color': 'var(--color-border)' }"
+          @mouseenter="$event.currentTarget.style.borderColor = 'rgba(200,240,74,0.4)'"
+          @mouseleave="$event.currentTarget.style.borderColor = 'var(--color-border)'"
+          @click="openRecipe(dish)"
+        >
           <div class="flex items-start justify-between gap-3">
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap mb-1.5">
@@ -234,23 +242,96 @@
                     : 'background:rgba(251,191,36,0.15); color:#fbbf24;'"
                 >{{ dish.missing_count === 0 ? '✓ Всё есть' : `нет ${dish.missing_count} ингр.` }}</span>
               </div>
-              <div class="flex items-center gap-3 text-xs mb-2" style="color:var(--color-text-dim);">
+              <div class="flex items-center gap-3 text-xs" style="color:var(--color-text-dim);">
                 <span>{{ dish.servings }} порц.</span>
                 <span>·</span>
                 <span class="macro-cal px-2 py-0.5 rounded">{{ dish.per_portion }} ккал/порц.</span>
-              </div>
-              <div v-if="dish.missing.length > 0" class="flex flex-wrap gap-1.5">
-                <span class="text-xs" style="color:var(--color-muted);">Нет:</span>
-                <span
-                  v-for="m in dish.missing" :key="m.product_id"
-                  class="tag text-xs"
-                  style="background:rgba(251,191,36,0.12); color:#fbbf24;"
-                >{{ m.name }}</span>
+                <span v-if="dish.missing.length > 0">·</span>
+                <span v-if="dish.missing.length > 0" style="color:#fbbf24;">нет: {{ dish.missing.map((m: any) => m.name).join(', ') }}</span>
               </div>
             </div>
-            <button class="btn btn-secondary text-xs py-1.5 px-3 flex-shrink-0" @click="addToPlanner(dish)">+ В план</button>
+            <span class="text-xs flex-shrink-0" style="color:var(--color-muted);">Подробнее →</span>
           </div>
         </div>
+
+        <!-- Модалка рецепта -->
+        <AppModal v-model="showRecipeModal" :title="selectedRecipe?.name ?? ''" max-width="600px">
+          <div v-if="selectedRecipe">
+            <!-- Теги -->
+            <div class="flex items-center gap-2 flex-wrap mb-4">
+              <span class="tag text-xs" :class="`meal-${selectedRecipe.category}`">{{ MEAL_LABELS[selectedRecipe.category] }}</span>
+              <span v-if="selectedRecipe.cooking_time" class="tag text-xs">⏱ {{ selectedRecipe.cooking_time }} мин</span>
+              <span class="tag text-xs">🍽 {{ selectedRecipe.servings }} порц.</span>
+              <span
+                class="tag text-xs font-bold"
+                :style="selectedRecipe.missing_count === 0
+                  ? 'background:rgba(74,240,184,0.15); color:#4af0b8;'
+                  : 'background:rgba(251,191,36,0.15); color:#fbbf24;'"
+              >{{ selectedRecipe.missing_count === 0 ? '✓ Всё есть' : `нет ${selectedRecipe.missing_count} ингр.` }}</span>
+            </div>
+
+            <!-- Питательность на 1 порцию -->
+            <div class="p-4 rounded-xl mb-5" style="background:var(--color-bg); border:1px solid var(--color-border);">
+              <p class="text-xs uppercase tracking-wider mb-3" style="color:var(--color-muted); font-family:'Syne',sans-serif;">На 1 порцию</p>
+              <div class="grid grid-cols-4 gap-2 text-center">
+                <div>
+                  <p class="text-base font-bold" style="font-family:'Syne',sans-serif; color:#a78bfa;">{{ selectedRecipe.per_portion }}</p>
+                  <p class="text-[10px]" style="color:var(--color-muted);">ккал</p>
+                </div>
+                <div>
+                  <p class="text-base font-bold" style="font-family:'Syne',sans-serif; color:#4af0b8;">{{ Math.round(selectedRecipe.total_protein / (selectedRecipe.servings || 1)) }}г</p>
+                  <p class="text-[10px]" style="color:var(--color-muted);">белки</p>
+                </div>
+                <div>
+                  <p class="text-base font-bold" style="font-family:'Syne',sans-serif; color:#fbbf24;">{{ Math.round(selectedRecipe.total_fat / (selectedRecipe.servings || 1)) }}г</p>
+                  <p class="text-[10px]" style="color:var(--color-muted);">жиры</p>
+                </div>
+                <div>
+                  <p class="text-base font-bold" style="font-family:'Syne',sans-serif; color:#818cf8;">{{ Math.round(selectedRecipe.total_carbs / (selectedRecipe.servings || 1)) }}г</p>
+                  <p class="text-[10px]" style="color:var(--color-muted);">углев.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ингредиенты -->
+            <div class="mb-5">
+              <p class="label mb-3">Ингредиенты <span style="font-weight:400; text-transform:none; color:var(--color-muted);">(на весь рецепт · {{ selectedRecipe.servings }} порц.)</span></p>
+              <div class="flex flex-col gap-1.5">
+                <div
+                  v-for="ing in selectedRecipe.ingredients" :key="ing.product_id"
+                  class="flex items-center justify-between px-3 py-2 rounded-lg"
+                  :style="ing.in_stock
+                    ? 'background:rgba(74,240,184,0.06); border:1px solid rgba(74,240,184,0.15);'
+                    : 'background:rgba(251,191,36,0.06); border:1px solid rgba(251,191,36,0.15);'"
+                >
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs" :style="ing.in_stock ? 'color:#4af0b8;' : 'color:#fbbf24;'">
+                      {{ ing.in_stock ? '✓' : '✗' }}
+                    </span>
+                    <span class="text-sm">{{ ing.name }}</span>
+                    <span class="tag text-[10px]" :class="`cat-${ing.category}`">{{ ing.category_label }}</span>
+                  </div>
+                  <span class="text-sm font-mono font-semibold" :style="ing.in_stock ? 'color:#4af0b8;' : 'color:#fbbf24;'">
+                    {{ ing.quantity_grams >= 1000 ? (ing.quantity_grams/1000).toFixed(2) + ' кг' : ing.quantity_grams + ' г' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Способ приготовления -->
+            <div v-if="selectedRecipe.notes" class="mb-5">
+              <p class="label mb-2">Приготовление</p>
+              <p class="text-sm leading-relaxed" style="color:var(--color-text-dim); white-space:pre-line;">{{ selectedRecipe.notes }}</p>
+            </div>
+
+            <!-- Кнопка в план -->
+            <div class="flex justify-end">
+              <button class="btn btn-primary" @click="addToPlanner(selectedRecipe)">
+                📅 Добавить в планировщик
+              </button>
+            </div>
+          </div>
+        </AppModal>
       </div>
       <div v-else class="py-8 text-center" style="color:var(--color-muted);">
         Нажмите на кнопку выше чтобы найти рецепты.
@@ -421,9 +502,14 @@ async function moveBoughtToInventory() {
 }
 
 // ── РЕЦЕПТЫ ───────────────────────────────────────────────────────────────────
-const maxMissing     = ref(0)
-const recipesData    = ref<any>(null)
-const loadingRecipes = ref(false)
+const maxMissing      = ref(0)
+const recipesData     = ref<any>(null)
+const loadingRecipes  = ref(false)
+const selectedRecipe  = ref<any>(null)  // открытая карточка рецепта
+const showRecipeModal = computed({
+  get: () => !!selectedRecipe.value,
+  set: (v) => { if (!v) selectedRecipe.value = null },
+})
 
 async function loadRecipes() {
   loadingRecipes.value = true
@@ -432,8 +518,13 @@ async function loadRecipes() {
   finally { loadingRecipes.value = false }
 }
 
+function openRecipe(dish: any) {
+  selectedRecipe.value = dish
+}
 function addToPlanner(dish: any) {
-  navigateTo('/planner'); toast(`Перейдите в планировщик и добавьте «${dish.name}»`)
+  selectedRecipe.value = null
+  navigateTo('/planner')
+  toast(`Перейдите в планировщик и добавьте «${dish.name}»`)
 }
 
 onMounted(() => { loadStock(); setShoppingPreset('week') })
