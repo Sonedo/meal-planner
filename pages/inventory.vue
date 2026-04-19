@@ -169,23 +169,51 @@
 
         <!-- Нужно купить -->
         <div v-if="itemsToBuy.length > 0" class="card mb-4 overflow-hidden">
-          <div class="px-4 py-2.5 flex items-center gap-2" style="border-bottom:1px solid var(--color-border);">
+          <div class="px-4 py-2.5 flex items-center justify-between gap-2" style="border-bottom:1px solid var(--color-border);">
             <span class="text-sm font-bold" style="font-family:'Syne',sans-serif;">🛒 Нужно купить</span>
+            <div class="flex items-center gap-2">
+              <span v-if="boughtItems.size > 0" class="text-xs" style="color:var(--color-accent);">
+                отмечено {{ boughtItems.size }}
+              </span>
+              <button
+                v-if="boughtItems.size > 0"
+                class="btn btn-primary text-xs py-1.5 px-3"
+                :disabled="movingToStock"
+                @click="moveBoughtToInventory"
+              >
+                {{ movingToStock ? '…' : '📦 В инвентарь' }}
+              </button>
+            </div>
           </div>
           <div v-for="group in groupedToBuy" :key="group.category">
             <div class="px-4 py-1.5" style="background:rgba(255,255,255,0.02); border-bottom:1px solid var(--color-border);">
               <span class="tag text-xs" :class="`cat-${group.category}`">{{ getCatLabel(group.category) }}</span>
             </div>
-            <div v-for="item in group.items" :key="item.product_id" class="table-row">
-              <div class="flex items-center gap-2 flex-1">
-                <input type="checkbox" class="w-4 h-4 rounded flex-shrink-0" />
+            <div
+              v-for="item in group.items" :key="item.product_id"
+              class="table-row transition-all"
+              :style="boughtItems.has(item.product_id) ? 'opacity:0.5; text-decoration:line-through;' : ''"
+            >
+              <div class="flex items-center gap-3 flex-1">
+                <input
+                  type="checkbox"
+                  class="w-4 h-4 rounded flex-shrink-0 cursor-pointer"
+                  :checked="boughtItems.has(item.product_id)"
+                  @change="toggleBought(item)"
+                />
                 <span class="text-sm">{{ item.name }}</span>
               </div>
-              <div class="text-right">
+              <div class="flex items-center gap-2">
                 <span class="text-sm font-mono font-bold" style="color:var(--color-accent);">{{ fmtGrams(item.to_buy_grams) }}</span>
-                <span v-if="item.in_stock_grams > 0" class="text-xs ml-2" style="color:var(--color-muted);">
+                <span v-if="item.in_stock_grams > 0" class="text-xs" style="color:var(--color-muted);">
                   (есть {{ fmtGrams(item.in_stock_grams) }})
                 </span>
+                <!-- Кнопка добавить одну позицию -->
+                <button
+                  class="btn btn-secondary text-[11px] py-1 px-2 flex-shrink-0"
+                  @click="moveOneToInventory(item)"
+                  title="Добавить в инвентарь"
+                >📦</button>
               </div>
             </div>
           </div>
@@ -389,6 +417,62 @@ async function deleteItem(id: number) {
 }
 
 // ── СПИСОК ПОКУПОК ────────────────────────────────────────────────────────────
+// Отмеченные как "куплено" — Set product_id → item
+const boughtItems   = ref<Map<number, any>>(new Map())
+const movingToStock = ref(false)
+
+function toggleBought(item: any) {
+  const m = new Map(boughtItems.value)
+  if (m.has(item.product_id)) m.delete(item.product_id)
+  else m.set(item.product_id, item)
+  boughtItems.value = m
+}
+
+// Добавить одну позицию прямо в инвентарь (без отметки)
+async function moveOneToInventory(item: any) {
+  try {
+    await $fetch('/api/inventory', {
+      method: 'POST',
+      body: {
+        product_id: item.product_id,
+        quantity:   item.to_buy_grams,
+        unit:       'г',
+        scope:      scope.value,
+      },
+    })
+    toast(`${item.name} → инвентарь`)
+    await loadStock()
+    // Пересчитать список покупок
+    await loadDiff()
+  } catch (e: any) { toast(e?.data?.statusMessage ?? 'Ошибка', 'error') }
+}
+
+// Добавить все отмеченные позиции в инвентарь разом
+async function moveBoughtToInventory() {
+  if (boughtItems.value.size === 0) return
+  movingToStock.value = true
+  try {
+    await Promise.all(
+      Array.from(boughtItems.value.values()).map(item =>
+        $fetch('/api/inventory', {
+          method: 'POST',
+          body: {
+            product_id: item.product_id,
+            quantity:   item.to_buy_grams,
+            unit:       'г',
+            scope:      scope.value,
+          },
+        })
+      )
+    )
+    toast(`${boughtItems.value.size} товаров добавлено в инвентарь`)
+    boughtItems.value = new Map()
+    await loadStock()
+    await loadDiff()
+  } catch (e: any) { toast(e?.data?.statusMessage ?? 'Ошибка', 'error') }
+  finally { movingToStock.value = false }
+}
+
 const shoppingFrom   = ref('')
 const shoppingTo     = ref('')
 const shoppingFamily = ref(false)
@@ -415,6 +499,7 @@ async function loadDiff() {
     diffData.value = await $fetch('/api/inventory/shopping-diff', {
       query: { from: shoppingFrom.value, to: shoppingTo.value, family: shoppingFamily.value },
     })
+    boughtItems.value = new Map()  // сбросить отметки при обновлении списка
   } catch (e: any) { toast(e?.data?.statusMessage ?? 'Ошибка','error') }
   finally { loadingDiff.value = false }
 }

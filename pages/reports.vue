@@ -4,7 +4,7 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">Отчёты</h1>
-        <p class="text-sm mt-0.5" style="color:var(--color-text-dim);">Питание · покупки · рецепты</p>
+        <p class="text-sm mt-0.5" style="color:var(--color-text-dim);">Питание · рецепты для заготовок</p>
       </div>
     </div>
 
@@ -116,38 +116,6 @@
       </div>
     </div>
 
-    <!-- ── ПОКУПКИ ──────────────────────────────────────────────────────────── -->
-    <div v-if="tab === 'shopping'">
-      <div v-if="!shoppingData" class="py-12 text-center" style="color:var(--color-muted);">
-        Выберите период и нажмите «Сформировать».
-      </div>
-      <div v-else>
-        <div class="flex items-center justify-between mb-4">
-          <p class="text-sm" style="color:var(--color-text-dim);">
-            {{ totalShoppingItems }} продуктов
-            <span v-if="shoppingData.family_mode" style="color:var(--color-accent);"> · 🏠 семейный список</span>
-            <span v-else> · личный список</span>
-          </p>
-          <button class="btn btn-secondary text-xs" onclick="window.print()">🖨 Печать</button>
-        </div>
-        <div v-if="Object.keys(shoppingData.categories).length === 0" class="py-6 text-sm" style="color:var(--color-muted);">Нет блюд в плане.</div>
-        <div v-for="(items, category) in shoppingData.categories" :key="category" class="card mb-4 overflow-hidden">
-          <div class="px-4 py-2.5 flex items-center gap-2" style="border-bottom:1px solid var(--color-border); background:rgba(255,255,255,0.02);">
-            <span class="tag text-xs" :class="`cat-${category}`">{{ getCatLabel(String(category)) }}</span>
-            <span class="text-xs" style="color:var(--color-muted);">{{ items.length }} позиц.</span>
-          </div>
-          <div v-for="item in items" :key="item.product_id" class="table-row">
-            <div class="flex items-center gap-2 flex-1">
-              <input type="checkbox" class="w-4 h-4 rounded" />
-              <span class="text-sm">{{ item.name }}</span>
-            </div>
-            <span class="text-sm font-mono font-bold px-2 py-0.5 rounded" style="background:var(--color-bg); color:var(--color-accent);">
-              {{ fmtGrams(item.total_grams) }}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- ── РЕЦЕПТЫ ─────────────────────────────────────────────────────────── -->
     <div v-if="tab === 'prep'">
@@ -234,7 +202,6 @@ const { hasFamily } = useAuth()
 
 const TABS = [
   { value: 'nutrition', label: '🥦 Питание' },
-  { value: 'shopping',  label: '🛒 Покупки' },
   { value: 'prep',      label: '📋 Рецепты' },
 ]
 const MEAL_LABELS: Record<string,string> = { breakfast:'Завтрак', lunch:'Обед', dinner:'Ужин', snack:'Перекус' }
@@ -247,13 +214,9 @@ const tab        = ref('nutrition')
 const familyMode = ref(false)
 const loading    = ref(false)
 const nutritionData = ref<any>(null)
-const shoppingData  = ref<any>(null)
 const prepData      = ref<any>(null)
 const userGoals     = ref<any>(null)  // дневные нормы пользователя
 
-const totalShoppingItems = computed(() =>
-  shoppingData.value ? Object.values(shoppingData.value.categories as Record<string,any[]>).reduce((s,i) => s+i.length, 0) : 0
-)
 
 function getCatLabel(v: string) { return CAT_LABELS[v] ?? v }
 
@@ -289,9 +252,8 @@ async function loadReports() {
   loading.value = true
   const q = { from: from.value, to: to.value, family: String(familyMode.value) }
   try {
-    [nutritionData.value, shoppingData.value, prepData.value] = await Promise.all([
+    [nutritionData.value, prepData.value] = await Promise.all([
       $fetch('/api/reports/nutrition-summary', { query: q }),
-      $fetch('/api/reports/shopping-list',     { query: q }),
       $fetch('/api/reports/prep-summary',      { query: q }),
     ])
   } catch(e: any) {

@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
 
   const entries = await prisma.mealPlanEntry.findMany({
     where: { user_id: { in: userIds }, date: { gte: from, lte: to } },
-    include: { dish: { include: { ingredients: { include: { product: true } } } } },
+    include: { dish: { include: { ingredients: { include: { product: true } } } }, extraIngredients: { include: { product: true } } },
     orderBy: { date: 'asc' },
   })
 

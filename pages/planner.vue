@@ -419,7 +419,13 @@ function getEntries(date: string, mealType: string) {
   return entries.value.filter(e => e.date === date && e.meal_type === mealType)
 }
 function entryCalories(entry: any) {
-  return (entry.dish?.total_calories ?? 0) * ((entry.portions ?? 1) / (entry.dish?.servings ?? 1))
+  const base = (entry.dish?.total_calories ?? 0) * ((entry.portions ?? 1) / (entry.dish?.servings ?? 1))
+  // Добавляем калории доп. ингредиентов (каждый × кол-во порций)
+  const extras = (entry.extraIngredients ?? []).reduce((sum: number, ex: any) => {
+    const cal = (ex.product?.calories_per_100g ?? 0) * ex.quantity_grams / 100
+    return sum + cal * (entry.portions ?? 1)
+  }, 0)
+  return base + extras
 }
 const r1 = (n: number) => Math.round(n * 10) / 10
 const dailyTotals = computed(() => {

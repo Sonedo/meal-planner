@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
 
   const entries = await prisma.mealPlanEntry.findMany({
     where: { user_id: { in: userIds }, date: { gte: from, lte: to } },
-    include: { dish: { include: { ingredients: { include: { product: true } } } } },
+    include: { dish: { include: { ingredients: { include: { product: true } } } }, extraIngredients: { include: { product: true } } },
   })
 
   // 2. Агрегируем нужные ингредиенты
@@ -33,6 +33,13 @@ export default defineEventHandler(async (event) => {
       const ex = needed.get(ing.product_id)
       if (ex) ex.needed_grams += grams
       else needed.set(ing.product_id, { product_id: ing.product_id, name: ing.product.name, category: ing.product.category, needed_grams: grams })
+    }
+    // Доп. ингредиенты × порции
+    for (const ex of (entry as any).extraIngredients ?? []) {
+      const grams = ex.quantity_grams * entry.portions
+      const existing = needed.get(ex.product_id)
+      if (existing) existing.needed_grams += grams
+      else needed.set(ex.product_id, { product_id: ex.product_id, name: ex.product.name, category: ex.product.category, needed_grams: grams })
     }
   }
 
