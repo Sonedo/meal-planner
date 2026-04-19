@@ -1,4 +1,3 @@
-// server/routes/api/meal-plan/index.post.ts
 import { prisma } from '~/server/utils/prisma'
 import { requireSession } from '~/server/utils/auth'
 
@@ -19,7 +18,6 @@ export default defineEventHandler(async (event) => {
   if (portions <= 0 || portions > 100)
     throw createError({ statusCode: 400, statusMessage: 'portions должно быть от 0.1 до 100' })
 
-  // Определяем для кого добавляем
   let targetUserId = session.userId
   if (body.target_user_id && Number(body.target_user_id) !== session.userId) {
     if (!session.familyId) throw createError({ statusCode: 403, statusMessage: 'Вы не состоите в семье' })
@@ -29,13 +27,20 @@ export default defineEventHandler(async (event) => {
     targetUserId = target.id
   }
 
-  // Дополнительные ингредиенты
+  // Доп. ингредиенты (добавленные)
   const extras: Array<{ product_id: number; quantity_grams: number }> =
     Array.isArray(body.extra_ingredients)
-      ? body.extra_ingredients.map((e: any) => ({
-          product_id:    Number(e.product_id),
-          quantity_grams: Number(e.quantity_grams),
-        })).filter((e: any) => e.product_id && e.quantity_grams > 0)
+      ? body.extra_ingredients
+          .map((e: any) => ({ product_id: Number(e.product_id), quantity_grams: Number(e.quantity_grams) }))
+          .filter((e: any) => e.product_id && e.quantity_grams > 0)
+      : []
+
+  // Исключённые ингредиенты (убранные из рецепта)
+  const excluded: Array<{ product_id: number }> =
+    Array.isArray(body.excluded_ingredients)
+      ? body.excluded_ingredients
+          .map((e: any) => ({ product_id: Number(e) }))
+          .filter((e: any) => e.product_id > 0)
       : []
 
   const entry = await prisma.mealPlanEntry.create({
@@ -46,14 +51,14 @@ export default defineEventHandler(async (event) => {
       dish_id:   Number(body.dish_id),
       portions,
       note:      body.note?.trim() || null,
-      extraIngredients: extras.length > 0
-        ? { create: extras }
-        : undefined,
+      extraIngredients:    extras.length   > 0 ? { create: extras }   : undefined,
+      excludedIngredients: excluded.length > 0 ? { create: excluded } : undefined,
     },
     include: {
-      user:            { select: { id: true, display_name: true } },
-      dish:            { include: { ingredients: { include: { product: true } } } },
-      extraIngredients: { include: { product: true } },
+      user:               { select: { id: true, display_name: true } },
+      dish:               { include: { ingredients: { include: { product: true } } } },
+      extraIngredients:   { include: { product: true } },
+      excludedIngredients: { include: { product: true } },
     },
   })
 

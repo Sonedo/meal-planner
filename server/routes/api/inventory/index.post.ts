@@ -5,16 +5,11 @@ export default defineEventHandler(async (event) => {
   const session = await requireSession(event)
   const body    = await readBody(event)
 
-  if (!body.product_id || body.quantity === undefined)
-    throw createError({ statusCode: 400, statusMessage: 'Нужны product_id и quantity' })
-
-  const quantity = Number(body.quantity)
-  if (quantity < 0)
-    throw createError({ statusCode: 400, statusMessage: 'Количество не может быть отрицательным' })
+  if (!body.product_id)
+    throw createError({ statusCode: 400, statusMessage: 'Нужен product_id' })
 
   const isFamily = body.scope === 'family' && !!session.familyId
 
-  // Upsert — обновляем если уже есть такой продукт в том же инвентаре
   const existing = await prisma.inventoryItem.findFirst({
     where: {
       product_id: Number(body.product_id),
@@ -23,9 +18,10 @@ export default defineEventHandler(async (event) => {
   })
 
   if (existing) {
+    // Обновляем заметку если передана
     const item = await prisma.inventoryItem.update({
       where: { id: existing.id },
-      data: { quantity, unit: body.unit ?? 'г', note: body.note ?? null },
+      data: { note: body.note ?? existing.note },
       include: { product: true },
     })
     return item
@@ -36,8 +32,6 @@ export default defineEventHandler(async (event) => {
       product_id: Number(body.product_id),
       user_id:    session.userId,
       family_id:  isFamily ? session.familyId : null,
-      quantity,
-      unit:       body.unit ?? 'г',
       note:       body.note ?? null,
     },
     include: { product: true },

@@ -67,8 +67,9 @@
               </p>
               <p class="text-[11px] font-medium leading-tight pr-4" style="font-family:'Syne',sans-serif;">{{ entry.dish?.name }}</p>
               <p v-if="entry.note" class="text-[10px] italic" style="color:var(--color-text-dim);">{{ entry.note }}</p>
-              <div v-if="entry.extraIngredients?.length" class="flex gap-1 flex-wrap">
-                <span v-for="ex in entry.extraIngredients" :key="ex.id" class="text-[9px] px-1 py-0.5 rounded" style="background:var(--color-border); color:var(--color-text-dim);">+{{ ex.product.name }}</span>
+              <div v-if="entry.extraIngredients?.length || entry.excludedIngredients?.length" class="flex gap-1 flex-wrap">
+                <span v-for="ex in entry.extraIngredients ?? []" :key="ex.id" class="text-[9px] px-1 py-0.5 rounded" style="background:rgba(74,240,184,0.1); color:#4af0b8;">+{{ ex.product.name }}</span>
+                <span v-for="ex in entry.excludedIngredients ?? []" :key="ex.id" class="text-[9px] px-1 py-0.5 rounded" style="background:rgba(248,113,113,0.1); color:#f87171; text-decoration:line-through;">{{ ex.product.name }}</span>
               </div>
               <div class="flex items-center gap-1">
                 <span class="text-[10px] px-1 py-0.5 rounded" style="background:rgba(200,240,74,0.1); color:var(--color-accent);">×{{ entry.portions ?? 1 }}п</span>
@@ -117,8 +118,9 @@
               </p>
               <p class="text-sm font-medium leading-tight" style="font-family:'Syne',sans-serif;">{{ entry.dish?.name }}</p>
               <p v-if="entry.note" class="text-xs mt-0.5 italic" style="color:var(--color-text-dim);">{{ entry.note }}</p>
-              <div v-if="entry.extraIngredients?.length" class="flex gap-1 flex-wrap mt-0.5">
-                <span v-for="ex in entry.extraIngredients" :key="ex.id" class="tag text-[10px]">+{{ ex.product.name }}</span>
+              <div v-if="entry.extraIngredients?.length || entry.excludedIngredients?.length" class="flex gap-1 flex-wrap mt-0.5">
+                <span v-for="ex in entry.extraIngredients ?? []" :key="ex.id" class="tag text-[10px]" style="background:rgba(74,240,184,0.1); color:#4af0b8;">+{{ ex.product.name }}</span>
+                <span v-for="ex in entry.excludedIngredients ?? []" :key="ex.id" class="tag text-[10px]" style="background:rgba(248,113,113,0.1); color:#f87171; text-decoration:line-through;">{{ ex.product.name }}</span>
               </div>
               <div class="flex items-center gap-2 mt-1 flex-wrap">
                 <span class="text-xs px-2 py-0.5 rounded" style="background:rgba(200,240,74,0.1); color:var(--color-accent);">×{{ entry.portions ?? 1 }} порц.</span>
@@ -207,6 +209,28 @@
         </div>
         <p class="text-[10px] uppercase tracking-wider mb-1.5" style="color:var(--color-muted); font-family:'Syne',sans-serif;">{{ addForm.portions }} порц. → итого</p>
         <MacroPills :calories="portionCalories.calories" :protein="portionCalories.protein" :fat="portionCalories.fat" :carbs="portionCalories.carbs" />
+      </div>
+
+      <!-- Ингредиенты рецепта — можно убрать -->
+      <div v-if="selectedDish && selectedDish.ingredients?.length" class="mb-4">
+        <label class="label">Ингредиенты блюда</label>
+        <p class="text-xs mb-2" style="color:var(--color-muted);">Снимите галочку чтобы убрать ингредиент из этой порции</p>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="ing in selectedDish.ingredients"
+            :key="ing.product_id"
+            type="button"
+            class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition-all"
+            :style="addForm.excluded.has(ing.product_id)
+              ? 'border-color:var(--color-border); background:transparent; color:var(--color-muted); text-decoration:line-through; opacity:0.5;'
+              : 'border-color:var(--color-border); background:var(--color-bg); color:var(--color-text);'"
+            @click="toggleExclude(ing.product_id)"
+          >
+            <span v-if="!addForm.excluded.has(ing.product_id)" style="color:var(--color-accent);">✓</span>
+            <span v-else style="color:var(--color-muted);">✗</span>
+            {{ ing.product?.name ?? ing.product_id }}
+          </button>
+        </div>
       </div>
 
       <!-- Кастомизация: доп. ингредиенты -->
@@ -419,13 +443,22 @@ function getEntries(date: string, mealType: string) {
   return entries.value.filter(e => e.date === date && e.meal_type === mealType)
 }
 function entryCalories(entry: any) {
-  const base = (entry.dish?.total_calories ?? 0) * ((entry.portions ?? 1) / (entry.dish?.servings ?? 1))
-  // Добавляем калории доп. ингредиентов (каждый × кол-во порций)
-  const extras = (entry.extraIngredients ?? []).reduce((sum: number, ex: any) => {
-    const cal = (ex.product?.calories_per_100g ?? 0) * ex.quantity_grams / 100
-    return sum + cal * (entry.portions ?? 1)
-  }, 0)
-  return base + extras
+  const factor = (entry.portions ?? 1) / (entry.dish?.servings ?? 1)
+  let cal = (entry.dish?.total_calories ?? 0) * factor
+
+  // Вычитаем исключённые ингредиенты
+  const excludedIds = new Set((entry.excludedIngredients ?? []).map((e: any) => e.product_id))
+  for (const ing of entry.dish?.ingredients ?? []) {
+    if (!excludedIds.has(ing.product_id)) continue
+    cal -= (ing.product?.calories_per_100g ?? 0) * ing.quantity_grams * factor / 100
+  }
+
+  // Добавляем доп. ингредиенты
+  for (const ex of entry.extraIngredients ?? []) {
+    cal += (ex.product?.calories_per_100g ?? 0) * ex.quantity_grams * (entry.portions ?? 1) / 100
+  }
+
+  return Math.max(0, cal)
 }
 const r1 = (n: number) => Math.round(n * 10) / 10
 const dailyTotals = computed(() => {
@@ -447,10 +480,11 @@ const addForm = reactive<{
   date: string; meal_type: string; dish_id: number|''
   portions: number; target_user_id: number|null
   note: string
-  extras: Array<{ product_id: number; quantity_grams: number; search: string; open: boolean }>
+  extras:   Array<{ product_id: number; quantity_grams: number; search: string; open: boolean }>
+  excluded: Set<number>  // product_id исключённых ингредиентов
 }>({
   date: '', meal_type: '', dish_id: '', portions: 1, target_user_id: null,
-  note: '', extras: [],
+  note: '', extras: [], excluded: new Set(),
 })
 // ── Дополнительные ингредиенты ───────────────────────────────────────────────
 const allProducts = ref<any[]>([])
@@ -472,6 +506,13 @@ function selectExtraProduct(idx: number, product: any) {
 }
 function closeExtraDropdown(idx: number) {
   setTimeout(() => { addForm.extras[idx].open = false }, 150)
+}
+
+function toggleExclude(productId: number) {
+  const s = new Set(addForm.excluded)
+  if (s.has(productId)) s.delete(productId)
+  else s.add(productId)
+  addForm.excluded = s
 }
 
 const targetMemberName = computed(() => {
@@ -498,11 +539,11 @@ const portionCalories = computed(() => {
   const factor = (addForm.portions || 1) / (selectedDish.value.servings || 1)
   return { calories: r1(selectedDish.value.total_calories * factor), protein: r1(selectedDish.value.total_protein * factor), fat: r1(selectedDish.value.total_fat * factor), carbs: r1(selectedDish.value.total_carbs * factor) }
 })
-function selectDish(id: number) { addForm.dish_id = id; addForm.portions = 1 }
+function selectDish(id: number) { addForm.dish_id = id; addForm.portions = 1; addForm.excluded = new Set() }
 function openAdd(date: string, mealType: string) {
   addForm.date = date; addForm.meal_type = mealType; addForm.dish_id = ''; addForm.portions = 1
   addForm.target_user_id = user.value?.id ?? null
-  addForm.note = ''; addForm.extras = []
+  addForm.note = ''; addForm.extras = []; addForm.excluded = new Set()
   dishSearch.value = ''; dishFilter.value = mealType; showAddModal.value = true
 }
 async function saveEntry() {
@@ -515,7 +556,8 @@ async function saveEntry() {
       date: addForm.date, meal_type: addForm.meal_type,
       dish_id: addForm.dish_id, portions: addForm.portions,
       note: addForm.note || null,
-      extra_ingredients: validExtras,
+      extra_ingredients:    validExtras,
+      excluded_ingredients: Array.from(addForm.excluded),
     }
     if (addForm.target_user_id && addForm.target_user_id !== user.value?.id) body.target_user_id = addForm.target_user_id
     await $fetch('/api/meal-plan', { method: 'POST', body })

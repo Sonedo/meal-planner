@@ -22,14 +22,12 @@
         <span class="text-sm" style="color:var(--color-text-dim);">Инвентарь:</span>
         <button class="btn text-xs py-1.5 px-3" :class="scope === 'personal' ? 'btn-primary' : 'btn-secondary'" @click="scope = 'personal'">Личный</button>
         <button class="btn text-xs py-1.5 px-3" :class="scope === 'family' ? 'btn-primary' : 'btn-secondary'" @click="scope = 'family'">🏠 Семейный</button>
-        <span class="text-xs" style="color:var(--color-muted);">Новые позиции будут добавлены в выбранный инвентарь</span>
       </div>
 
       <!-- Добавить продукт -->
       <div class="card px-5 py-4 mb-5">
         <h3 class="text-sm font-bold mb-3" style="font-family:'Syne',sans-serif;">Добавить в запасы</h3>
         <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <!-- Поиск продукта -->
           <div class="flex-1">
             <label class="label">Продукт</label>
             <div class="relative">
@@ -42,7 +40,6 @@
                 @blur="setTimeout(() => addDropdownOpen = false, 150)"
               />
               <span v-if="addSelectedProduct" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--color-accent);">✓</span>
-              <!-- Дропдаун -->
               <div v-if="addDropdownOpen && addSearch.length > 0 && !addSelectedProduct"
                 class="absolute left-0 right-0 top-full mt-1 rounded-lg shadow-xl z-50 overflow-hidden"
                 style="background:var(--color-surface); border:1px solid var(--color-border); max-height:200px; overflow-y:auto;"
@@ -59,30 +56,13 @@
               </div>
             </div>
           </div>
-          <!-- Количество -->
-          <div style="width:120px;">
-            <label class="label">Количество</label>
-            <input v-model.number="addQuantity" type="number" min="1" step="1" class="input" placeholder="500" />
-          </div>
-          <!-- Единица -->
-          <div style="width:90px;">
-            <label class="label">Ед.</label>
-            <select v-model="addUnit" class="select">
-              <option value="г">г</option>
-              <option value="мл">мл</option>
-              <option value="шт">шт</option>
-              <option value="кг">кг</option>
-              <option value="л">л</option>
-            </select>
-          </div>
-          <!-- Заметка -->
-          <div class="flex-1 sm:flex-none" style="min-width:150px;">
-            <label class="label">Заметка</label>
+          <div class="flex-1 sm:flex-none" style="min-width:160px;">
+            <label class="label">Заметка (необязательно)</label>
             <input v-model="addNote" class="input" placeholder="морозилка, полка…" />
           </div>
           <button
             class="btn btn-primary py-2"
-            :disabled="!addSelectedProduct || !addQuantity || addSaving"
+            :disabled="!addSelectedProduct || addSaving"
             @click="addItem"
           >
             {{ addSaving ? '…' : '+ Добавить' }}
@@ -106,24 +86,14 @@
               <p class="text-sm font-medium">{{ item.product.name }}</p>
               <p v-if="item.note" class="text-xs" style="color:var(--color-muted);">{{ item.note }}</p>
             </div>
-            <!-- Редактирование количества прямо в строке -->
-            <div class="flex items-center gap-2">
-              <input
-                :value="item.quantity"
-                type="number" min="0" step="1"
-                class="input text-sm text-right font-mono"
-                style="width:80px;"
-                @change="updateItem(item, Number(($event.target as HTMLInputElement).value))"
-              />
-              <span class="text-sm" style="color:var(--color-muted); width:24px;">{{ item.unit }}</span>
-            </div>
-            <button class="btn btn-danger text-xs py-1 px-2" @click="deleteItem(item.id)">×</button>
+            <span class="tag text-xs" style="color:#4af0b8; background:rgba(74,240,184,0.1);">✓ есть</span>
+            <button class="btn btn-danger text-xs py-1 px-2 ml-2" @click="deleteItem(item.id)">×</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ── СПИСОК ПОКУПОК С УЧЁТОМ ЗАПАСОВ ──────────────────────────────── -->
+    <!-- ── СПИСОК ПОКУПОК ─────────────────────────────────────────────────── -->
     <div v-if="tab === 'shopping'">
       <div class="card px-5 py-4 mb-5 flex flex-wrap items-end gap-4">
         <div>
@@ -152,18 +122,14 @@
       </div>
       <div v-else>
         <!-- Сводка -->
-        <div class="grid grid-cols-3 gap-3 mb-5">
+        <div class="grid grid-cols-2 gap-3 mb-5">
           <div class="card px-4 py-3 text-center">
-            <p class="text-2xl font-bold" style="font-family:'Syne',sans-serif; color:var(--color-accent);">{{ toByCount }}</p>
+            <p class="text-2xl font-bold" style="font-family:'Syne',sans-serif; color:var(--color-accent);">{{ itemsToBuy.length }}</p>
             <p class="text-xs mt-1" style="color:var(--color-muted);">нужно купить</p>
           </div>
           <div class="card px-4 py-3 text-center">
-            <p class="text-2xl font-bold" style="font-family:'Syne',sans-serif; color:#4af0b8;">{{ coveredCount }}</p>
+            <p class="text-2xl font-bold" style="font-family:'Syne',sans-serif; color:#4af0b8;">{{ itemsCovered.length }}</p>
             <p class="text-xs mt-1" style="color:var(--color-muted);">есть дома</p>
-          </div>
-          <div class="card px-4 py-3 text-center">
-            <p class="text-2xl font-bold" style="font-family:'Syne',sans-serif;">{{ diffData.items.length }}</p>
-            <p class="text-xs mt-1" style="color:var(--color-muted);">всего в плане</p>
           </div>
         </div>
 
@@ -172,19 +138,17 @@
           <div class="px-4 py-2.5 flex items-center justify-between gap-2" style="border-bottom:1px solid var(--color-border);">
             <span class="text-sm font-bold" style="font-family:'Syne',sans-serif;">🛒 Нужно купить</span>
             <div class="flex items-center gap-2">
-              <span v-if="boughtItems.size > 0" class="text-xs" style="color:var(--color-accent);">
-                отмечено {{ boughtItems.size }}
-              </span>
+              <span v-if="boughtItems.size > 0" class="text-xs" style="color:var(--color-accent);">отмечено {{ boughtItems.size }}</span>
               <button
                 v-if="boughtItems.size > 0"
                 class="btn btn-primary text-xs py-1.5 px-3"
                 :disabled="movingToStock"
                 @click="moveBoughtToInventory"
-              >
-                {{ movingToStock ? '…' : '📦 В инвентарь' }}
-              </button>
+              >{{ movingToStock ? '…' : '📦 В инвентарь' }}</button>
             </div>
           </div>
+
+          <!-- По категориям -->
           <div v-for="group in groupedToBuy" :key="group.category">
             <div class="px-4 py-1.5" style="background:rgba(255,255,255,0.02); border-bottom:1px solid var(--color-border);">
               <span class="tag text-xs" :class="`cat-${group.category}`">{{ getCatLabel(group.category) }}</span>
@@ -192,7 +156,7 @@
             <div
               v-for="item in group.items" :key="item.product_id"
               class="table-row transition-all"
-              :style="boughtItems.has(item.product_id) ? 'opacity:0.5; text-decoration:line-through;' : ''"
+              :style="boughtItems.has(item.product_id) ? 'opacity:0.45;' : ''"
             >
               <div class="flex items-center gap-3 flex-1">
                 <input
@@ -201,20 +165,16 @@
                   :checked="boughtItems.has(item.product_id)"
                   @change="toggleBought(item)"
                 />
-                <span class="text-sm">{{ item.name }}</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="text-sm font-mono font-bold" style="color:var(--color-accent);">{{ fmtGrams(item.to_buy_grams) }}</span>
-                <span v-if="item.in_stock_grams > 0" class="text-xs" style="color:var(--color-muted);">
-                  (есть {{ fmtGrams(item.in_stock_grams) }})
+                <span class="text-sm" :style="boughtItems.has(item.product_id) ? 'text-decoration:line-through;' : ''">
+                  {{ item.name }}
                 </span>
-                <!-- Кнопка добавить одну позицию -->
-                <button
-                  class="btn btn-secondary text-[11px] py-1 px-2 flex-shrink-0"
-                  @click="moveOneToInventory(item)"
-                  title="Добавить в инвентарь"
-                >📦</button>
               </div>
+              <!-- Кнопка добавить одну позицию -->
+              <button
+                class="btn btn-secondary text-xs py-1 px-2"
+                @click="moveOneToInventory(item)"
+                title="Добавить в инвентарь"
+              >📦</button>
             </div>
           </div>
         </div>
@@ -222,12 +182,14 @@
         <!-- Есть дома -->
         <div v-if="itemsCovered.length > 0" class="card overflow-hidden">
           <div class="px-4 py-2.5 flex items-center gap-2 cursor-pointer" style="border-bottom:1px solid var(--color-border);" @click="showCovered = !showCovered">
-            <span class="text-sm font-bold" style="font-family:'Syne',sans-serif; color:#4af0b8;">✓ Есть дома ({{ itemsCovered.length }})</span>
+            <span class="text-sm font-bold" style="color:#4af0b8;">✓ Есть дома ({{ itemsCovered.length }})</span>
             <span class="ml-auto text-xs" style="color:var(--color-muted);">{{ showCovered ? '▲' : '▼' }}</span>
           </div>
-          <div v-if="showCovered" v-for="item in itemsCovered" :key="item.product_id" class="table-row" style="opacity:0.6;">
-            <span class="text-sm flex-1">{{ item.name }}</span>
-            <span class="text-sm font-mono" style="color:#4af0b8;">{{ fmtGrams(item.needed_grams) }}</span>
+          <div v-if="showCovered">
+            <div v-for="item in itemsCovered" :key="item.product_id" class="table-row" style="opacity:0.6;">
+              <span class="text-sm flex-1">{{ item.name }}</span>
+              <span class="tag text-xs" style="color:#4af0b8; background:rgba(74,240,184,0.1);">✓</span>
+            </div>
           </div>
         </div>
       </div>
@@ -235,9 +197,8 @@
 
     <!-- ── ЧТО МОЖНО ПРИГОТОВИТЬ ─────────────────────────────────────────── -->
     <div v-if="tab === 'recipes'">
-      <!-- Настройка поиска -->
       <div class="card px-5 py-4 mb-5">
-        <h3 class="text-sm font-bold mb-3" style="font-family:'Syne',sans-serif;">Что можно приготовить из того что есть</h3>
+        <h3 class="text-sm font-bold mb-3" style="font-family:'Syne',sans-serif;">Поиск по наличию продуктов</h3>
         <div class="flex items-center gap-3 flex-wrap">
           <span class="text-sm" style="color:var(--color-text-dim);">Допустимо недостающих:</span>
           <div class="flex gap-2">
@@ -246,9 +207,7 @@
               class="btn text-sm py-1.5 px-4"
               :class="maxMissing === n ? 'btn-primary' : 'btn-secondary'"
               @click="maxMissing = n; loadRecipes()"
-            >
-              {{ n === 0 ? 'Всё есть' : `не хватает ${n}` }}
-            </button>
+            >{{ n === 0 ? 'Всё есть' : `не хватает ${n}` }}</button>
           </div>
         </div>
       </div>
@@ -257,14 +216,10 @@
       <div v-else-if="recipesData">
         <p class="text-sm mb-4" style="color:var(--color-text-dim);">
           Найдено <strong>{{ recipesData.total }}</strong> рецептов
-          <span v-if="maxMissing === 0">из того что есть дома</span>
-          <span v-else>при нехватке не более {{ maxMissing }} ингр.</span>
         </p>
-
         <div v-if="recipesData.dishes.length === 0" class="py-8 text-center" style="color:var(--color-muted);">
           Нет подходящих рецептов. Попробуйте увеличить допустимое кол-во недостающих.
         </div>
-
         <div v-for="dish in recipesData.dishes" :key="dish.id" class="card mb-3 px-5 py-4">
           <div class="flex items-start justify-between gap-3">
             <div class="flex-1 min-w-0">
@@ -272,22 +227,18 @@
                 <h3 class="font-bold" style="font-family:'Syne',sans-serif;">{{ dish.name }}</h3>
                 <span class="tag text-xs" :class="`meal-${dish.category}`">{{ MEAL_LABELS[dish.category] }}</span>
                 <span v-if="dish.cooking_time" class="tag text-xs">⏱ {{ dish.cooking_time }} мин</span>
-                <!-- Бейдж: всё есть / не хватает N -->
                 <span
                   class="tag text-xs font-bold"
                   :style="dish.missing_count === 0
                     ? 'background:rgba(74,240,184,0.15); color:#4af0b8;'
                     : 'background:rgba(251,191,36,0.15); color:#fbbf24;'"
-                >
-                  {{ dish.missing_count === 0 ? '✓ Всё есть' : `не хватает ${dish.missing_count}` }}
-                </span>
+                >{{ dish.missing_count === 0 ? '✓ Всё есть' : `нет ${dish.missing_count} ингр.` }}</span>
               </div>
               <div class="flex items-center gap-3 text-xs mb-2" style="color:var(--color-text-dim);">
                 <span>{{ dish.servings }} порц.</span>
                 <span>·</span>
                 <span class="macro-cal px-2 py-0.5 rounded">{{ dish.per_portion }} ккал/порц.</span>
               </div>
-              <!-- Недостающие ингредиенты -->
               <div v-if="dish.missing.length > 0" class="flex flex-wrap gap-1.5">
                 <span class="text-xs" style="color:var(--color-muted);">Нет:</span>
                 <span
@@ -297,11 +248,7 @@
                 >{{ m.name }}</span>
               </div>
             </div>
-            <!-- Добавить в план -->
-            <button
-              class="btn btn-secondary text-xs py-1.5 px-3 flex-shrink-0"
-              @click="addToPlanner(dish)"
-            >+ В план</button>
+            <button class="btn btn-secondary text-xs py-1.5 px-3 flex-shrink-0" @click="addToPlanner(dish)">+ В план</button>
           </div>
         </div>
       </div>
@@ -326,7 +273,6 @@ const TABS = [
 const MEAL_LABELS: Record<string,string> = { breakfast:'Завтрак', lunch:'Обед', dinner:'Ужин', snack:'Перекус' }
 const CAT_LABELS: Record<string,string> = { vegetable:'Овощи', meat:'Мясо / Рыба', dairy:'Молочное', grain:'Злаки / Крупы', fruit:'Фрукты', legume:'Бобовые', oil:'Масла', other:'Прочее' }
 function getCatLabel(v: string) { return CAT_LABELS[v] ?? v }
-function fmtGrams(g: number) { return g >= 1000 ? `${(g/1000).toFixed(2)} кг` : `${Math.round(g)} г` }
 function localDate(d: Date = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
@@ -335,29 +281,23 @@ const tab   = ref('stock')
 const scope = ref<'personal'|'family'>('personal')
 
 // ── ЗАПАСЫ ────────────────────────────────────────────────────────────────────
-const stockItems   = ref<any[]>([])
-const allProducts  = ref<any[]>([])
-const loadingStock = ref(false)
-const addSearch    = ref('')
+const stockItems         = ref<any[]>([])
+const allProducts        = ref<any[]>([])
+const loadingStock       = ref(false)
+const addSearch          = ref('')
 const addSelectedProduct = ref<any>(null)
-const addQuantity  = ref<number>(500)
-const addUnit      = ref('г')
-const addNote      = ref('')
-const addDropdownOpen = ref(false)
-const addSaving    = ref(false)
+const addNote            = ref('')
+const addDropdownOpen    = ref(false)
+const addSaving          = ref(false)
 
 const filteredProducts = computed(() => {
   const q = addSearch.value.toLowerCase().trim()
   if (!q) return []
   return allProducts.value.filter(p => p.name.toLowerCase().includes(q)).slice(0, 15)
 })
-
 function selectProduct(p: any) {
-  addSelectedProduct.value = p
-  addSearch.value = p.name
-  addDropdownOpen.value = false
+  addSelectedProduct.value = p; addSearch.value = p.name; addDropdownOpen.value = false
 }
-
 const groupedStock = computed(() => {
   const m: Record<string, any[]> = {}
   for (const item of stockItems.value) {
@@ -380,35 +320,18 @@ async function loadStock() {
 }
 
 async function addItem() {
-  if (!addSelectedProduct.value || !addQuantity.value) return
+  if (!addSelectedProduct.value) return
   addSaving.value = true
   try {
     await $fetch('/api/inventory', {
       method: 'POST',
-      body: {
-        product_id: addSelectedProduct.value.id,
-        quantity:   addQuantity.value,
-        unit:       addUnit.value,
-        note:       addNote.value || null,
-        scope:      scope.value,
-      },
+      body: { product_id: addSelectedProduct.value.id, note: addNote.value || null, scope: scope.value },
     })
     toast(`Добавлено: ${addSelectedProduct.value.name}`)
-    addSearch.value = ''; addSelectedProduct.value = null; addQuantity.value = 500; addNote.value = ''
+    addSearch.value = ''; addSelectedProduct.value = null; addNote.value = ''
     await loadStock()
   } catch (e: any) { toast(e?.data?.statusMessage ?? 'Ошибка', 'error') }
   finally { addSaving.value = false }
-}
-
-async function updateItem(item: any, newQty: number) {
-  if (newQty <= 0) { await deleteItem(item.id); return }
-  try {
-    await $fetch('/api/inventory', {
-      method: 'POST',
-      body: { product_id: item.product_id, quantity: newQty, unit: item.unit, note: item.note, scope: item.family_id ? 'family' : 'personal' },
-    })
-    await loadStock()
-  } catch (e: any) { toast(e?.data?.statusMessage ?? 'Ошибка', 'error') }
 }
 
 async function deleteItem(id: number) {
@@ -417,62 +340,8 @@ async function deleteItem(id: number) {
 }
 
 // ── СПИСОК ПОКУПОК ────────────────────────────────────────────────────────────
-// Отмеченные как "куплено" — Set product_id → item
-const boughtItems   = ref<Map<number, any>>(new Map())
-const movingToStock = ref(false)
-
-function toggleBought(item: any) {
-  const m = new Map(boughtItems.value)
-  if (m.has(item.product_id)) m.delete(item.product_id)
-  else m.set(item.product_id, item)
-  boughtItems.value = m
-}
-
-// Добавить одну позицию прямо в инвентарь (без отметки)
-async function moveOneToInventory(item: any) {
-  try {
-    await $fetch('/api/inventory', {
-      method: 'POST',
-      body: {
-        product_id: item.product_id,
-        quantity:   item.to_buy_grams,
-        unit:       'г',
-        scope:      scope.value,
-      },
-    })
-    toast(`${item.name} → инвентарь`)
-    await loadStock()
-    // Пересчитать список покупок
-    await loadDiff()
-  } catch (e: any) { toast(e?.data?.statusMessage ?? 'Ошибка', 'error') }
-}
-
-// Добавить все отмеченные позиции в инвентарь разом
-async function moveBoughtToInventory() {
-  if (boughtItems.value.size === 0) return
-  movingToStock.value = true
-  try {
-    await Promise.all(
-      Array.from(boughtItems.value.values()).map(item =>
-        $fetch('/api/inventory', {
-          method: 'POST',
-          body: {
-            product_id: item.product_id,
-            quantity:   item.to_buy_grams,
-            unit:       'г',
-            scope:      scope.value,
-          },
-        })
-      )
-    )
-    toast(`${boughtItems.value.size} товаров добавлено в инвентарь`)
-    boughtItems.value = new Map()
-    await loadStock()
-    await loadDiff()
-  } catch (e: any) { toast(e?.data?.statusMessage ?? 'Ошибка', 'error') }
-  finally { movingToStock.value = false }
-}
-
+const boughtItems    = ref<Map<number, any>>(new Map())
+const movingToStock  = ref(false)
 const shoppingFrom   = ref('')
 const shoppingTo     = ref('')
 const shoppingFamily = ref(false)
@@ -499,15 +368,13 @@ async function loadDiff() {
     diffData.value = await $fetch('/api/inventory/shopping-diff', {
       query: { from: shoppingFrom.value, to: shoppingTo.value, family: shoppingFamily.value },
     })
-    boughtItems.value = new Map()  // сбросить отметки при обновлении списка
+    boughtItems.value = new Map()
   } catch (e: any) { toast(e?.data?.statusMessage ?? 'Ошибка','error') }
   finally { loadingDiff.value = false }
 }
 
-const itemsToBuy  = computed(() => diffData.value?.items.filter((i: any) => !i.covered) ?? [])
+const itemsToBuy   = computed(() => diffData.value?.items.filter((i: any) => !i.covered) ?? [])
 const itemsCovered = computed(() => diffData.value?.items.filter((i: any) => i.covered) ?? [])
-const toByCount   = computed(() => itemsToBuy.value.length)
-const coveredCount = computed(() => itemsCovered.value.length)
 
 const groupedToBuy = computed(() => {
   const m: Record<string, any[]> = {}
@@ -519,33 +386,56 @@ const groupedToBuy = computed(() => {
     .sort((a, b) => a.category.localeCompare(b.category))
 })
 
+function toggleBought(item: any) {
+  const m = new Map(boughtItems.value)
+  if (m.has(item.product_id)) m.delete(item.product_id)
+  else m.set(item.product_id, item)
+  boughtItems.value = m
+}
+
+async function moveOneToInventory(item: any) {
+  try {
+    await $fetch('/api/inventory', {
+      method: 'POST',
+      body: { product_id: item.product_id, scope: scope.value },
+    })
+    toast(`${item.name} → инвентарь`)
+    await loadStock(); await loadDiff()
+  } catch (e: any) { toast(e?.data?.statusMessage ?? 'Ошибка', 'error') }
+}
+
+async function moveBoughtToInventory() {
+  if (boughtItems.value.size === 0) return
+  movingToStock.value = true
+  try {
+    await Promise.all(
+      Array.from(boughtItems.value.values()).map(item =>
+        $fetch('/api/inventory', { method: 'POST', body: { product_id: item.product_id, scope: scope.value } })
+      )
+    )
+    toast(`${boughtItems.value.size} товаров добавлено в инвентарь`)
+    boughtItems.value = new Map()
+    await loadStock(); await loadDiff()
+  } catch (e: any) { toast(e?.data?.statusMessage ?? 'Ошибка', 'error') }
+  finally { movingToStock.value = false }
+}
+
 // ── РЕЦЕПТЫ ───────────────────────────────────────────────────────────────────
-const maxMissing    = ref(0)
-const recipesData   = ref<any>(null)
+const maxMissing     = ref(0)
+const recipesData    = ref<any>(null)
 const loadingRecipes = ref(false)
 
 async function loadRecipes() {
   loadingRecipes.value = true
-  try {
-    recipesData.value = await $fetch('/api/inventory/recipes', { query: { missing: maxMissing.value } })
-  } catch (e: any) { toast(e?.data?.statusMessage ?? 'Ошибка','error') }
+  try { recipesData.value = await $fetch('/api/inventory/recipes', { query: { missing: maxMissing.value } }) }
+  catch (e: any) { toast(e?.data?.statusMessage ?? 'Ошибка','error') }
   finally { loadingRecipes.value = false }
 }
 
 function addToPlanner(dish: any) {
-  // Переходим в планировщик с предвыбранным блюдом
-  navigateTo('/planner')
-  toast(`Перейдите в планировщик и добавьте «${dish.name}»`)
+  navigateTo('/planner'); toast(`Перейдите в планировщик и добавьте «${dish.name}»`)
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
-onMounted(() => {
-  loadStock()
-  setShoppingPreset('week')
-})
-
-// Автозагрузка рецептов при переходе на вкладку
-watch(tab, (v) => {
-  if (v === 'recipes' && !recipesData.value) loadRecipes()
-})
+onMounted(() => { loadStock(); setShoppingPreset('week') })
+watch(tab, (v) => { if (v === 'recipes' && !recipesData.value) loadRecipes() })
 </script>

@@ -27,7 +27,8 @@ export default defineEventHandler(async (event) => {
     include: {
       user:            { select: { id: true, display_name: true } },
       dish:            { include: { ingredients: { include: { product: true } } } },
-      extraIngredients: { include: { product: true } },
+      extraIngredients:    { include: { product: true } },
+      excludedIngredients: { include: { product: true } },
     },
     orderBy: [{ date: 'asc' }, { meal_type: 'asc' }],
   })

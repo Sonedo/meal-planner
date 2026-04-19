@@ -50,6 +50,7 @@ model Product {
   dishIngredients        DishIngredient[]
   inventoryItems         InventoryItem[]
   mealPlanExtras         MealPlanExtraIngredient[]
+  mealPlanExclusions     MealPlanExcludedIngredient[]
 }
 
 // ── Блюда (общие) ─────────────────────────────────────────────────────────────
@@ -95,7 +96,8 @@ model MealPlanEntry {
 
   user             User                      @relation(fields: [user_id], references: [id], onDelete: Cascade)
   dish             Dish                      @relation(fields: [dish_id], references: [id])
-  extraIngredients MealPlanExtraIngredient[]
+  extraIngredients    MealPlanExtraIngredient[]
+  excludedIngredients MealPlanExcludedIngredient[]
 }
 
 // ── Доп. ингредиенты к записи плана (кастомизация блюда) ─────────────────────
@@ -109,14 +111,22 @@ model MealPlanExtraIngredient {
   product Product       @relation(fields: [product_id], references: [id])
 }
 
+// ── Исключённые ингредиенты из записи плана ──────────────────────────────────
+model MealPlanExcludedIngredient {
+  id         Int    @id @default(autoincrement())
+  entry_id   Int
+  product_id Int    // какой продукт убран из блюда
+
+  entry   MealPlanEntry @relation(fields: [entry_id], references: [id], onDelete: Cascade)
+  product Product       @relation(fields: [product_id], references: [id])
+}
+
 // ── Инвентарь (запасы семьи или личные) ──────────────────────────────────────
 model InventoryItem {
   id         Int      @id @default(autoincrement())
   family_id  Int?     // null = личный инвентарь (без семьи)
   user_id    Int      // кто добавил
   product_id Int
-  quantity   Float    // граммы / мл / штуки — в тех же единицах что и рецепты
-  unit       String   @default("г")  // г, мл, шт
   note       String?  // "в морозилке", "на полке" и т.д.
   updatedAt  DateTime @updatedAt
 

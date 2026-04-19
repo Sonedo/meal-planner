@@ -27,8 +27,9 @@ export default defineEventHandler(async (event) => {
   const entries = await prisma.mealPlanEntry.findMany({
     where: { user_id: { in: userIds }, date: { gte: from, lte: to } },
     include: {
-      dish: true,
-      extraIngredients: { include: { product: true } },
+      dish: { include: { ingredients: { include: { product: true } } } },
+      extraIngredients:    { include: { product: true } },
+      excludedIngredients: { include: { product: true } },
       user: { select: { id: true } },
     },
     orderBy: { date: 'asc' },
@@ -52,6 +53,17 @@ export default defineEventHandler(async (event) => {
       prot  += ex.product.protein_per_100g  * f
       fat   += ex.product.fat_per_100g      * f
       carbs += ex.product.carbs_per_100g    * f
+    }
+
+    // Исключённые ингредиенты — вычитаем из нутриентов
+    const excludedIds = new Set((entry as any).excludedIngredients?.map((e: any) => e.product_id) ?? [])
+    for (const ing of entry.dish.ingredients) {
+      if (!excludedIds.has(ing.product_id)) continue
+      const f = ing.quantity_grams * factor / 100
+      cal   -= ing.product.calories_per_100g * f
+      prot  -= ing.product.protein_per_100g  * f
+      fat   -= ing.product.fat_per_100g      * f
+      carbs -= ing.product.carbs_per_100g    * f
     }
 
     const key = `${entry.user_id}::${entry.date}`
